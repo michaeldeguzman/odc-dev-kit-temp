@@ -1,0 +1,145 @@
+<h2>CRUD Screen Design</h2>
+<p class="subtitle">CustomerList + CustomerDetail — review both screens before approving</p>
+
+<div class="section">
+  <h3>Screen 1 — CustomerList</h3>
+  <p class="subtitle">Lives in MainFlow. No input parameters.</p>
+  <div class="mockup">
+    <div class="mockup-header">CustomerList</div>
+    <div class="mockup-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:18px;font-weight:600;color:#e2e8f0">Customers</div>
+        <button class="mock-button" style="background:#7c6af7;color:#fff;border:none;padding:7px 16px;border-radius:5px;font-size:13px">+ New Customer</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1px solid #334155">
+            <th style="text-align:left;padding:8px;color:#7c6af7">CUSTOMER_ID</th>
+            <th style="text-align:left;padding:8px;color:#7c6af7">FIRST NAME</th>
+            <th style="text-align:left;padding:8px;color:#7c6af7">LAST NAME</th>
+            <th style="text-align:left;padding:8px;color:#7c6af7">EMAIL</th>
+            <th style="text-align:left;padding:8px;color:#7c6af7">CREATED AT</th>
+            <th style="padding:8px"></th>
+          </tr>
+        </thead>
+        <tbody style="color:#cbd5e1">
+          <tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:8px;font-family:monospace;font-size:11px">CID-20240101-001</td>
+            <td style="padding:8px">John</td>
+            <td style="padding:8px">Smith</td>
+            <td style="padding:8px">john@example.com</td>
+            <td style="padding:8px;font-size:11px">2024-01-01 09:00</td>
+            <td style="padding:8px;white-space:nowrap">
+              <button style="background:#334155;color:#e2e8f0;border:none;padding:4px 10px;border-radius:4px;font-size:12px;margin-right:4px;cursor:pointer">✏️ Edit</button>
+              <button style="background:#7f1d1d;color:#fca5a5;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer">🗑️ Delete</button>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:8px;font-family:monospace;font-size:11px">CID-20240102-002</td>
+            <td style="padding:8px">Jane</td>
+            <td style="padding:8px">Doe</td>
+            <td style="padding:8px">jane@example.com</td>
+            <td style="padding:8px;font-size:11px">2024-01-02 11:30</td>
+            <td style="padding:8px;white-space:nowrap">
+              <button style="background:#334155;color:#e2e8f0;border:none;padding:4px 10px;border-radius:4px;font-size:12px;margin-right:4px;cursor:pointer">✏️ Edit</button>
+              <button style="background:#7f1d1d;color:#fca5a5;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer">🗑️ Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;padding:10px;background:#1e293b;border-radius:6px;border-left:3px solid #ef4444;font-size:12px;color:#fca5a5;display:none">
+        ⚠️ Delete "John Smith"? This cannot be undone. [Confirm] [Cancel]
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#64748b;font-style:italic">↑ Delete shows inline confirm strip (or ODC confirm popup) before calling Customer_Delete</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Screen 2 — CustomerDetail</h3>
+  <p class="subtitle">Lives in MainFlow. Input: CustomerId (Text, optional). Empty = Create mode. Populated = Edit mode.</p>
+
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">CustomerDetail — CREATE mode (CustomerId empty)</div>
+      <div class="mockup-body">
+        <div style="font-size:16px;font-weight:600;color:#e2e8f0;margin-bottom:14px">New Customer</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">CUSTOMER_ID *</div>
+            <input class="mock-input" placeholder="e.g. CID-20240101-003" style="width:100%;box-sizing:border-box">
+            <div style="color:#64748b;font-size:10px;margin-top:2px">Must be unique. User-supplied.</div>
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">FIRST NAME</div>
+            <input class="mock-input" placeholder="First name" style="width:100%;box-sizing:border-box">
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">LAST NAME</div>
+            <input class="mock-input" placeholder="Last name" style="width:100%;box-sizing:border-box">
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">EMAIL</div>
+            <input class="mock-input" placeholder="email@example.com" style="width:100%;box-sizing:border-box">
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="mock-button" style="background:#7c6af7;color:#fff;border:none;padding:7px 18px;border-radius:5px;font-size:13px">Save</button>
+          <button class="mock-button" style="background:#334155;color:#e2e8f0;border:none;padding:7px 18px;border-radius:5px;font-size:13px">Cancel</button>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#64748b;font-style:italic">OnInitialize: nothing to load. Save → Customer_Create → redirect to CustomerList.</div>
+      </div>
+    </div>
+
+    <div class="mockup">
+      <div class="mockup-header">CustomerDetail — EDIT mode (CustomerId populated)</div>
+      <div class="mockup-body">
+        <div style="font-size:16px;font-weight:600;color:#e2e8f0;margin-bottom:14px">Edit Customer</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">CUSTOMER_ID</div>
+            <input class="mock-input" value="CID-20240101-001" style="width:100%;box-sizing:border-box;opacity:0.5" disabled>
+            <div style="color:#64748b;font-size:10px;margin-top:2px">Read-only in edit mode.</div>
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">FIRST NAME</div>
+            <input class="mock-input" value="John" style="width:100%;box-sizing:border-box">
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">LAST NAME</div>
+            <input class="mock-input" value="Smith" style="width:100%;box-sizing:border-box">
+          </div>
+          <div>
+            <div style="color:#7c6af7;font-size:11px;margin-bottom:4px">EMAIL</div>
+            <input class="mock-input" value="john@example.com" style="width:100%;box-sizing:border-box">
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="color:#64748b;font-size:11px;margin-bottom:4px">CREATED AT (read-only)</div>
+            <div style="padding:6px 10px;background:#1e293b;border-radius:4px;color:#64748b;font-size:12px">2024-01-01 09:00:00</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="mock-button" style="background:#7c6af7;color:#fff;border:none;padding:7px 18px;border-radius:5px;font-size:13px">Save</button>
+          <button class="mock-button" style="background:#334155;color:#e2e8f0;border:none;padding:7px 18px;border-radius:5px;font-size:13px">Cancel</button>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#64748b;font-style:italic">OnInitialize: Customer_GetById(CustomerId). Save → Customer_Update → redirect to CustomerList.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key behaviours</h3>
+  <ul style="color:#cbd5e1;font-size:13px;line-height:2">
+    <li><strong>CustomerList OnInitialize</strong> → <code>Customer_GetAll</code> → bind to table</li>
+    <li><strong>Delete button</strong> → confirm dialog → <code>Customer_Delete(CUSTOMER_ID)</code> → refresh list</li>
+    <li><strong>Edit button</strong> → navigate to CustomerDetail with <code>CustomerId</code></li>
+    <li><strong>New Customer</strong> → navigate to CustomerDetail with no CustomerId</li>
+    <li><strong>CustomerDetail OnInitialize</strong> → if CustomerId not empty → <code>Customer_GetById</code> → populate local variable</li>
+    <li><strong>Save (create)</strong> → <code>Customer_Create</code> → if Success → navigate to CustomerList</li>
+    <li><strong>Save (edit)</strong> → <code>Customer_Update</code> → if Success → navigate to CustomerList</li>
+    <li><strong>Errors</strong> → shown via ODC feedback message on the screen</li>
+    <li><strong>CUSTOMER_ID</strong> → editable only in create mode, disabled in edit mode</li>
+    <li><strong>CREATED_AT</strong> → shown read-only in edit mode, hidden in create mode</li>
+  </ul>
+</div>

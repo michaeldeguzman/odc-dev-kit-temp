@@ -1,0 +1,65 @@
+<h2>How many screens?</h2>
+<p class="subtitle">Standard ODC CRUD: 2-screen vs 3-screen pattern</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="two-screen" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:12px;padding:12px;background:#1a1a2e;color:#e2e8f0;border-radius:6px;line-height:1.8">
+        <div style="color:#7c6af7;margin-bottom:8px">● CustomerList</div>
+        <div style="padding-left:12px;color:#94a3b8">
+          [ New Customer ]<br>
+          ┌──────────────────────────────────┐<br>
+          │ CUSTOMER_ID │ NAME │ EMAIL │ ··· │<br>
+          │ CID-001 │ John Smith │ j@… │ ✏️ 🗑️ │<br>
+          │ CID-002 │ Jane Doe │ d@… │ ✏️ 🗑️ │<br>
+          └──────────────────────────────────┘
+        </div>
+        <div style="color:#7c6af7;margin-top:12px;margin-bottom:8px">● CustomerDetail  <span style="color:#64748b;font-size:11px">(input: CustomerId?)</span></div>
+        <div style="padding-left:12px;color:#94a3b8">
+          Title: "New Customer" OR "Edit Customer"<br>
+          [ CUSTOMER_ID ] [ FIRST_NAME ]<br>
+          [ LAST_NAME   ] [ EMAIL      ]<br>
+          [ CREATED_AT  — read only   ]<br>
+          [ Save ]  [ Cancel ]
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — 2 Screens</h3>
+      <p>CustomerList + CustomerDetail (shared create/edit). ODC standard pattern. CustomerId empty = create, populated = edit.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Less to build</li><li>One place for form logic</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Slightly more conditional logic in one screen</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="three-screen" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:12px;padding:12px;background:#1a1a2e;color:#e2e8f0;border-radius:6px;line-height:1.8">
+        <div style="color:#7c6af7;margin-bottom:8px">● CustomerList</div>
+        <div style="padding-left:12px;color:#94a3b8">
+          [ New Customer ] → CustomerCreate<br>
+          ┌──────────────────────────────────┐<br>
+          │ CUSTOMER_ID │ NAME │ EMAIL │ ··· │<br>
+          │ CID-001 │ John Smith │ j@… │ ✏️ 🗑️ │<br>
+          └──────────────────────────────────┘
+        </div>
+        <div style="color:#7c6af7;margin-top:8px;margin-bottom:4px">● CustomerCreate</div>
+        <div style="padding-left:12px;color:#94a3b8;font-size:11px">Blank form → calls Customer_Create</div>
+        <div style="color:#7c6af7;margin-top:8px;margin-bottom:4px">● CustomerEdit  <span style="color:#64748b;font-size:10px">(input: CustomerId)</span></div>
+        <div style="padding-left:12px;color:#94a3b8;font-size:11px">Pre-filled form → calls Customer_Update</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — 3 Screens</h3>
+      <p>CustomerList + CustomerCreate + CustomerEdit. Separate screens, cleaner logic per screen.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Simpler logic per screen</li><li>Titles always correct</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More screens to build</li><li>Duplicate form layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
