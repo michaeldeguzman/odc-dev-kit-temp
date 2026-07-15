@@ -40,13 +40,15 @@ Business-specific fields go between `Id` and the audit block.
 
 **Static Entity:** `MessageType` — records: Success(1), Error(2), Warning(3), Info(4)
 
-**Helper Server Actions:**
-- `EntityActionResult_BuildFromSuccess(EntityActionResultMessageText: Text)` → `EntityActionResult`
-- `EntityActionResult_BuildFromError(EntityActionResultMessageText: Text)` → `EntityActionResult`
-- `EntityActionResult_CombineEntityActionMessages(EntityActionMessages: EntityActionMessage List)` → `CombinedEntityActionMessageTypeId`, `CombinedEntityActionMessageText`
-- `Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier` — **must be marked as Function** (ODC "Function" toggle = True) so it can be called inline in assignment expressions
+**Helper Server Actions (with required folder placement):**
+- Folder `EntityActionResult`:
+  - `EntityActionResult_BuildFromSuccess(EntityActionResultMessageText: Text)` → `EntityActionResult`
+  - `EntityActionResult_BuildFromError(EntityActionResultMessageText: Text)` → `EntityActionResult`
+  - `EntityActionResult_CombineEntityActionMessages(EntityActionMessages: EntityActionMessage List)` → `CombinedEntityActionMessageTypeId`, `CombinedEntityActionMessageText`
+- Folder `Session`:
+  - `Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier` — **must be marked as Function** (ODC "Function" toggle = True) so it can be called inline in assignment expressions
 
-If any of these don't exist in the target app, create them first by referencing ModelApplication or recreating the pattern.
+If any of these don't exist in the target app, create them first (in the correct folders) by referencing ModelApplication or recreating the pattern.
 
 ## The 4 CRUD Actions
 
@@ -294,6 +296,8 @@ Then publish.
 ## Verification Checklist
 
 After mentor run, confirm via `context_actions` and mentor inspection:
+- [ ] `EntityActionResult_*` helpers are inside folder `EntityActionResult`
+- [ ] `Session_GetNormalizedSessionUserId` is inside folder `Session`
 - [ ] All 4 actions are inside a folder named `{Entity}`
 - [ ] 4 actions exist: `_Validate`, `_Upsert`, `_GetCanRemove`, `_Remove`
 - [ ] `_Upsert` has `Source` input + `EntityActionResult` output + `Id` output
