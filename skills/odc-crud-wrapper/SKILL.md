@@ -44,7 +44,7 @@ Business-specific fields go between `Id` and the audit block.
 - `EntityActionResult_BuildFromSuccess(EntityActionResultMessageText: Text)` → `EntityActionResult`
 - `EntityActionResult_BuildFromError(EntityActionResultMessageText: Text)` → `EntityActionResult`
 - `EntityActionResult_CombineEntityActionMessages(EntityActionMessages: EntityActionMessage List)` → `CombinedEntityActionMessageTypeId`, `CombinedEntityActionMessageText`
-- `Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier`
+- `Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier` — **must be marked as Function** (ODC "Function" toggle = True) so it can be called inline in assignment expressions
 
 If any of these don't exist in the target app, create them first by referencing ModelApplication or recreating the pattern.
 
@@ -253,6 +253,8 @@ Create these 4 server actions:
 
 All shared helpers (EntityActionResult_BuildFromSuccess, BuildFromError,
 CombineEntityActionMessages, Session_GetNormalizedSessionUserId) already exist in the app.
+Session_GetNormalizedSessionUserId is marked as a Function and must be called inline
+in assignment expressions (not as a separate action call node in the flow).
 ```
 
 ## Edge Cases
