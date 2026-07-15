@@ -264,6 +264,21 @@ Session_GetNormalizedSessionUserId is marked as a Function and must be called in
 in assignment expressions (not as a separate action call node in the flow).
 ```
 
+## Auto-Layout (required after creation)
+
+After the 4 actions are created, run a **second mentor turn** (resume same session) to auto-position all nodes in each action:
+
+```
+Auto-position all flow nodes in each of these actions so the layout is clean
+and readable: {EntityName}_Validate, {EntityName}_Upsert,
+{EntityName}_GetCanRemove, {EntityName}_Remove.
+
+Do not change any logic, connections, inputs, outputs, or expressions —
+only reposition the nodes.
+```
+
+Then publish.
+
 ## Edge Cases
 
 | Scenario | Handling |
@@ -290,4 +305,5 @@ After mentor run, confirm via `context_actions` and mentor inspection:
 - [ ] `_Remove` uses `GetForUpdate{Entity}` (not aggregate)
 - [ ] `_Remove` has DatabaseException + AllExceptions handlers
 - [ ] `Session_GetNormalizedSessionUserId()` called inline in assign expressions in `_Upsert` and `_Remove` — no separate call node before the assign widget
+- [ ] All 4 actions have been auto-positioned (clean, readable layout)
 - [ ] 0 errors in validation (warnings for unused actions are expected)
