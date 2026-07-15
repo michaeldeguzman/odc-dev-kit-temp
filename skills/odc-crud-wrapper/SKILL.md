@@ -117,6 +117,7 @@ IMPORTANT:
 - Use separate Create{Entity} and Update{Entity} — NOT CreateOrUpdate{Entity}.
 - On create, UpdatedOn = Source.CreatedOn (copy), NOT a second CurrDateTime() call.
 - UpdatedByUserId = Source.CreatedByUserId (copy) on create path.
+- Session_GetNormalizedSessionUserId() MUST be called inline inside the assign expression — do NOT add a separate action call node before the assign widget.
 - Must include both exception handlers.
 ```
 
@@ -178,6 +179,7 @@ IMPORTANT:
 - When GetCanRemove fails → RAISE ProcessingException, do NOT return failure result.
 - Use GetForUpdate{Entity} (locks the row) — not GetById aggregate.
 - Assign fields on GetForUpdate{Entity}.Record.{Entity}, not on Source.
+- Session_GetNormalizedSessionUserId() MUST be called inline inside the assign expression — do NOT add a separate action call node before the assign widget.
 - Must include both exception handlers.
 ```
 
@@ -281,4 +283,5 @@ After mentor run, confirm via `context_actions` and mentor inspection:
 - [ ] `_Remove` raises `ProcessingException` on GetCanRemove failure (not returns EntityActionResult)
 - [ ] `_Remove` uses `GetForUpdate{Entity}` (not aggregate)
 - [ ] `_Remove` has DatabaseException + AllExceptions handlers
+- [ ] `Session_GetNormalizedSessionUserId()` called inline in assign expressions in `_Upsert` and `_Remove` — no separate call node before the assign widget
 - [ ] 0 errors in validation (warnings for unused actions are expected)
