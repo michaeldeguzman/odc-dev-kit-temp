@@ -187,6 +187,7 @@ IMPORTANT:
 
 | Element | Convention | Example |
 |---|---|---|
+| Folder | `{Entity}` (same as entity name) | `SampleEntity` |
 | Validate | `{Entity}_Validate` | `SampleEntity_Validate` |
 | Upsert | `{Entity}_Upsert` | `SampleEntity_Upsert` |
 | CanRemove check | `{Entity}_GetCanRemove` | `SampleEntity_GetCanRemove` |
@@ -196,11 +197,15 @@ IMPORTANT:
 | ID output param | `Id` | `Id` (always) |
 | Validate aggregate | `GetById` | `GetById` (always, in GetCanRemove) |
 
+All 4 server actions must be placed inside a folder named exactly `{Entity}` (e.g. all `Employee_*` actions go in folder `Employee`).
+
 ## Mentor Prompt Template
 
 ```
 Create CRUD wrapper server actions for the {EntityName} entity following the
 ModelApplication SampleEntity pattern exactly.
+
+Place all 4 server actions inside a folder named exactly `{EntityName}`.
 
 Entity business fields: {list fields with type/mandatory/max-length}
 Standard audit fields (Id, IsActive, CreatedByUserId, CreatedOn, UpdatedByUserId,
@@ -274,6 +279,7 @@ in assignment expressions (not as a separate action call node in the flow).
 ## Verification Checklist
 
 After mentor run, confirm via `context_actions` and mentor inspection:
+- [ ] All 4 actions are inside a folder named `{Entity}`
 - [ ] 4 actions exist: `_Validate`, `_Upsert`, `_GetCanRemove`, `_Remove`
 - [ ] `_Upsert` has `Source` input + `EntityActionResult` output + `Id` output
 - [ ] `_Upsert` uses `Create{Entity}` + `Update{Entity}` separately (not `CreateOrUpdate`)
