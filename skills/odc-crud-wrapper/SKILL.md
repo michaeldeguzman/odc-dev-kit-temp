@@ -24,6 +24,36 @@ Every wrapped entity must carry these fields beyond its business attributes:
 
 Business-specific fields go between `Id` and the audit block.
 
+## Pre-flight Check
+
+Run before starting any mentor session for a new entity. Do not skip — missing fields cause compile errors; silent adds on populated tables cause publish failures.
+
+### 1. Check entity fields
+
+Call `context_entities {app: "<app>"}` and locate the target entity. Verify all 6 standard fields exist with correct names and types (OutSystems is case-sensitive).
+
+If any are missing:
+
+1. Report which fields are absent
+2. Confirm with user before adding:
+   > "Entity `{Entity}` is missing: `IsActive`, `CreatedOn`. Add them now?
+   > Fields will be added as optional with safe defaults — safe for both new and existing tables."
+3. On confirmation, add in the same mentor session:
+
+| Field | Type | IsMandatory | Default |
+|---|---|---|---|
+| `IsActive` | Boolean | False | `True` |
+| `CreatedOn` | DateTime | False | `#1900-01-01 00:00:00#` |
+| `UpdatedOn` | DateTime | False | `#1900-01-01 00:00:00#` |
+| `CreatedByUserId` | User Identifier | False | _(none)_ |
+| `UpdatedByUserId` | User Identifier | False | _(none)_ |
+
+**Always add as `IsMandatory=False`** — safe for new tables and required for existing ones with data. No downside.
+
+### 2. Check shared infrastructure
+
+Call `context_actions {app: "<app>"}` and confirm required helper actions exist (see Shared Infrastructure below). If missing, create them in the same mentor session before the CRUD actions.
+
 ## Shared Infrastructure (must exist in app before wrapping)
 
 **Structures:**
@@ -290,12 +320,14 @@ Then publish.
 | Entity with Text PK (not Long Integer) | Upsert cannot use NullIdentifier() to detect new — caller must pass explicit flag or check by querying |
 | All-optional business fields | Validate still created; ListAppend blocks may be empty; CombineMessages still called on non-empty list |
 | Entity already has CreatedOn/UpdatedOn | Confirm field names match exactly; OutSystems is case-sensitive |
-| Adding audit fields to entity with existing data | Make audit fields optional (IsMandatory=False) with safe defaults (IsActive=True, DateTime fields=#1900-01-01 00:00:00#). Mandatory fields without defaults on existing tables trigger OS-DPL-50205 at publish time. User Identifier audit fields need no default — just set IsMandatory=False. |
+| Adding audit fields to entity with existing data | Handled by Pre-flight Check — always adds as IsMandatory=False with safe defaults. Never add mandatory audit fields without defaults on populated tables; triggers OS-DPL-50205 at publish. |
 | App also references Snowflake/external entities | Publish may fail with OS-DPL-50205 if Snowflake external connection not configured in target stage. Fix in ODC Portal → Configurations → [Stage]. Verify via context_actions instead of publish result. |
 
 ## Verification Checklist
 
 After mentor run, confirm via `context_actions` and mentor inspection:
+- [ ] Pre-flight run: entity fields verified (or added as IsMandatory=False with safe defaults)
+- [ ] Pre-flight run: shared infrastructure confirmed present before CRUD actions created
 - [ ] `EntityActionResult_*` helpers are inside folder `EntityActionResult`
 - [ ] `Session_GetNormalizedSessionUserId` is inside folder `Session`
 - [ ] All 4 actions are inside a folder named `{Entity}`
