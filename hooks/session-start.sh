@@ -7,13 +7,13 @@
 
 REPO_ROOT="${REPO_ROOT:-$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel 2>/dev/null)}"
 CLAUDE_MD="${CLAUDE_MD_PATH:-$REPO_ROOT/CLAUDE.md}"
-README_MD="$REPO_ROOT/README.md"
 
 [ ! -f "$CLAUDE_MD" ] && exit 0
 
-# Tenant from README (CLAUDE.md has runtime URL, not tenant hostname)
-TENANT=$(grep -oE '[A-Za-z0-9][A-Za-z0-9.-]*\.outsystems\.dev' "$README_MD" 2>/dev/null | head -1)
-APP_KEY=$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$CLAUDE_MD" | head -1)
+# Tenant and app key from PROJECT_CONFIG.md (canonical source of project-specific values)
+PROJECT_CONFIG="$REPO_ROOT/PROJECT_CONFIG.md"
+TENANT=$(grep -oE '[A-Za-z0-9][A-Za-z0-9.-]*\.outsystems\.dev' "$PROJECT_CONFIG" 2>/dev/null | head -1)
+APP_KEY=$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$PROJECT_CONFIG" 2>/dev/null | head -1)
 
 # Extract last table row from the most recent build history section.
 # Matches lines like: | description | Rev N → M | notes |

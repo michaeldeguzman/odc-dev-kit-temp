@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__outsystems__app_create",
+      "mcp__outsystems__app_list",
+      "mcp__outsystems__app_refs",
+      "mcp__outsystems__app_revisions",
+      "mcp__outsystems__auth_status",
+      "mcp__outsystems__context_actions",
+      "mcp__outsystems__context_connections",
+      "mcp__outsystems__context_entities",
+      "mcp__outsystems__context_screens",
+      "mcp__outsystems__context_search",
+      "mcp__outsystems__context_structures",
+      "mcp__outsystems__env_app",
+      "mcp__outsystems__env_list",
+      "mcp__outsystems__mentor_get_run",
+      "mcp__outsystems__mentor_start",
+      "mcp__outsystems__publish_logs",
+      "mcp__outsystems__publish_start",
+      "mcp__outsystems__publish_status",
+      "Bash(bash *)",
+      "Bash(git *)",
+      "Bash(python3 *)",
+      "Bash(python3 -c ' *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

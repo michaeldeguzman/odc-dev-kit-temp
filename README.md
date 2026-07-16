@@ -1,15 +1,23 @@
 # OutSystems MCP
 
-Claude Code workspace for building OutSystems Developer Cloud (ODC) apps via the OutSystems MCP HTTP transport.
+Claude Code workspace template for building OutSystems Developer Cloud (ODC) apps via the OutSystems MCP HTTP transport.
 
-## Setup
+## Starting a new project from this template
 
-1. Install [Claude Code](https://claude.ai/claude-code)
-2. Register the OutSystems MCP server:
+1. Clone this repo
+2. Edit **`PROJECT_CONFIG.md`** — set your app name, app key, tenant, and runtime URL. That's the only file with project-specific values.
+3. Register the OutSystems MCP server (replace `<tenant>` with your tenant from `PROJECT_CONFIG.md`):
    ```
    claude mcp add -s user --transport http --client-id service_studio --callback-port 7890 outsystems https://<tenant>.outsystems.dev/mcp
    ```
-3. Authenticate when prompted (OAuth flow via browser)
+4. Authenticate when prompted (OAuth flow via browser)
+5. Update `CLAUDE.md` — replace the build history with your own app's history
+
+## Setup (existing project)
+
+1. Install [Claude Code](https://claude.ai/claude-code)
+2. Register the MCP server using the tenant in `PROJECT_CONFIG.md`
+3. Authenticate when prompted
 
 ## Skills
 
@@ -37,13 +45,17 @@ Creates 4 server actions per entity:
 Create CRUD wrapper for <EntityName>
 ```
 
-## Test Application
+### `odc-catchup`
 
-**Test Anything** — `f464e3e1-4a26-4187-9d73-330de60ed791`  
-Runtime: https://dbresults-rd-dev.outsystems.app/TestAnything  
-Tenant: `dbresults-rd.outsystems.dev`
+Recaps current app state at session start — reads `CLAUDE.md` build history and calls `context_actions` / `context_entities` to show what's deployed.
 
-Entities with CRUD wrappers: `TestEntity`, `Employee`
+### `odc-ship`
+
+Handles the full mentor → publish → deploy flow, including `no_changes_detected` verification and `CLAUDE.md` build log update.
+
+## Target App
+
+See [`PROJECT_CONFIG.md`](PROJECT_CONFIG.md) for the active app name, app key, tenant, and runtime URL.
 
 ## Shared Infrastructure (required before wrapping any entity)
 

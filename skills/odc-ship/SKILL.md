@@ -11,12 +11,11 @@ Publish current mentor session to Development and optionally promote to next sta
 
 - `mentor_session_id` + `mentor_session_token` from last terminal `mentor_get_run` result
 - `env_key` for target environment
+- App key from `PROJECT_CONFIG.md`
 
-## Environments (Test Anything)
+## Environments
 
-| Name | env_key |
-|---|---|
-| Development | resolve via `env_list` |
+Resolve `env_key` via `env_list`. Environment names and runtime URLs are in `PROJECT_CONFIG.md`.
 
 ## Publish Flow
 
@@ -27,7 +26,7 @@ Publish current mentor session to Development and optionally promote to next sta
    - Call `context_actions` to verify actual deployed state
    - Report: "No new revision deployed — submitted OML matched current deployment. [N actions confirmed]"
 5. **`succeeded`**:
-   - Call `env_app {env_key, application_key: "f464e3e1-4a26-4187-9d73-330de60ed791"}` for runtime URL
+   - Call `env_app {env_key, application_key: "<AppKey from PROJECT_CONFIG.md>"}` for runtime URL
    - Report revision + URL as markdown link
    - Update CLAUDE.md build log (see below)
 6. **`failed`**:

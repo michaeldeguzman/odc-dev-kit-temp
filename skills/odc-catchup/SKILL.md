@@ -9,24 +9,20 @@ Recap current ODC state at session start or on demand.
 
 ## Steps
 
-1. Read `CLAUDE.md` — find last build entry (revision, date, what was built, any pending notes)
-2. Call `context_actions {app: "TestAnything"}` — count total deployed actions, note folders and names
-3. Call `context_entities {app: "TestAnything"}` — list current entities
-4. Summarize discrepancies: if action count doesn't match CLAUDE.md, note it
+1. Read `PROJECT_CONFIG.md` — get app name and app key
+2. Read `CLAUDE.md` — find last build entry (revision, date, what was built, any pending notes)
+3. Call `context_actions {app: "<AppName from PROJECT_CONFIG.md>"}` — count total deployed actions, note folders and names
+4. Call `context_entities {app: "<AppName from PROJECT_CONFIG.md>"}` — list current entities
+5. Summarize discrepancies: if action count doesn't match CLAUDE.md, note it
 
 ## App Reference
 
-| | |
-|---|---|
-| App | Test Anything |
-| App Key | `f464e3e1-4a26-4187-9d73-330de60ed791` |
-| Tenant | `dbresults-rd.outsystems.dev` |
-| Runtime | https://dbresults-rd-dev.outsystems.app/TestAnything |
+See `PROJECT_CONFIG.md` at the repo root for app name, app key, tenant, and runtime URL.
 
 ## Output Format
 
 ```
-App: Test Anything (rev N) — Development
+App: <AppName> (rev N) — Development
 Entities: EntityA, EntityB, ...
 Actions: N total — folders: EntityA (4), EntityB (4), EntityActionResult (3), Session (1), ...
 Last build: YYYY-MM-DD — [what was built]

@@ -1,1 +1,2 @@
-.superpowers/brainstorm/*/state/
+.superpowers/brainstorm/
+.claude/settings.local.json
