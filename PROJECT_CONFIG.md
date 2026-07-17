@@ -12,8 +12,8 @@ Replace every `<placeholder>` with your actual values.
 
 ## How this is used
 
-- `skills/odc-catchup/SKILL.md` — reads app name and key when calling `context_actions` / `context_entities`
-- `skills/odc-ship/SKILL.md` — reads app key for `env_app` call after publish
+- `.claude/skills/dbresults-odc-catchup/SKILL.md` — reads app name and key when calling `context_actions` / `context_entities`
+- `.claude/skills/dbresults-odc-ship/SKILL.md` — reads app key for `env_app` call after publish
 - `hooks/session-start.sh` — reads tenant and app key to inject session context
 - `README.md` — links here for the live app reference
 

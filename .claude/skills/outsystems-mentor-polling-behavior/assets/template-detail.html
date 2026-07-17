@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<!-- template-version: 1.2.0 -->
+<!--
+  outsystems-mentor-polling-behavior — Session Detail template.
+  Populated by run.py _render_detail() via _render_template().
+  Slots: {{APP_NAME}}, {{DATE}}, {{RUN_ID_SHORT}}, {{BADGE_CLASS}},
+         {{STATUS}}, {{TOTAL_POLLS}}, {{POLLS_500MS}}, {{TIER3_CADENCE}},
+         {{WALL_TIME}}, {{PAYLOAD_HUMAN}}, {{TOKEN_PROXY}},
+         {{POLLS_SAVED_PCT}}, {{POLLS_SAVED_DETAIL}},
+         {{CONTEXT_SAVED_PCT}}, {{CONTEXT_SAVED_DETAIL}}, {{POLL_ROWS}}
+  Note: Mentor findings are displayed inline in the conversation,
+        not stored or rendered here.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Session Detail &mdash; {{RUN_ID_SHORT}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --os-bg:       #0A0A0F;
+    --os-bg-2:     #11111A;
+    --os-card:     #161620;
+    --os-card-2:   #1C1C28;
+    --os-border:   #262633;
+    --os-text:     #F5F5F7;
+    --os-text-muted: #9B9BA8;
+    --os-text-dim:   #6B6B7A;
+    --os-red:      #FF3D52;
+    --os-red-dark: #C42030;
+    --os-red-glow: rgba(255, 61, 82, 0.18);
+    --c-ok:        #34D399;
+    --c-fail:      #FF3D52;
+    --c-cancel:    #FBBF24;
+    --c-run:       #3B82F6;
+    --c-purple:    #B57BFF;
+    --c-orange:    #FB923C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--os-bg);
+    color: var(--os-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+  }
+
+  a { color: var(--c-run); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Header ── */
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    background: linear-gradient(180deg, #0E0E16 0%, #0A0A0F 100%);
+    border-bottom: 1px solid var(--os-border);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--os-red) 0%, var(--os-red-dark) 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px var(--os-red-glow);
+    font-weight: 800; color: white; font-size: 18px;
+  }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand-sub  { font-size: 12px; color: var(--os-text-muted); margin-top: 2px; }
+  .header-meta { display: flex; gap: 22px; align-items: center; }
+  .meta-item   { display: flex; flex-direction: column; }
+  .meta-label  {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--os-text-dim); font-weight: 600;
+  }
+  .meta-value { font-size: 13px; color: var(--os-text); font-weight: 500; margin-top: 3px; }
+
+  /* ── Back link ── */
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 20px 28px 0;
+    color: var(--c-run); font-size: 13px; font-weight: 500;
+  }
+  .back:hover { text-decoration: underline; }
+
+  /* ── Stats bar ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px 28px;
+    background: var(--os-bg);
+    border-bottom: 1px solid var(--os-border);
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--os-card) 0%, var(--os-card-2) 100%);
+    border: 1px solid var(--os-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    position: relative; overflow: hidden;
+  }
+  .stat::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--accent, var(--os-red));
+  }
+  .stat-label  {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--os-text-muted); font-weight: 600;
+  }
+  .stat-value  {
+    font-size: 26px; font-weight: 700; color: var(--os-text);
+    margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .stat-detail { font-size: 11px; color: var(--os-text-dim); margin-top: 2px; }
+
+  /* ── Main layout ── */
+  main { padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  .section-title {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--os-text-muted);
+    font-weight: 600; margin-bottom: 12px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, var(--os-card) 0%, var(--os-card-2) 100%);
+    border: 1px solid var(--os-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #0D0D16; color: var(--os-text-dim);
+    font-weight: 600; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 10px 16px;
+    text-align: left; border-bottom: 1px solid var(--os-border);
+  }
+  td {
+    padding: 10px 16px; border-bottom: 1px solid var(--os-border);
+    font-size: 13px; color: var(--os-text);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+  .mono {    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; color: var(--os-text-muted);
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .badge::before {
+    content: ""; width: 6px; height: 6px;
+    border-radius: 50%; background: currentColor; opacity: 0.7;
+  }
+  .badge-ok     { background: rgba(52, 211, 153, 0.12); color: var(--c-ok);     border: 1px solid rgba(52, 211, 153, 0.25); }
+  .badge-fail   { background: rgba(255, 61, 82, 0.12);  color: var(--c-fail);   border: 1px solid rgba(255, 61, 82, 0.25); }
+  .badge-cancel { background: rgba(251, 191, 36, 0.12); color: var(--c-cancel); border: 1px solid rgba(251, 191, 36, 0.25); }
+  .badge-run    { background: rgba(59, 130, 246, 0.12); color: var(--c-run);    border: 1px solid rgba(59, 130, 246, 0.25); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">O</div>
+    <div>
+      <div class="brand-name">{{APP_NAME}}</div>
+      <div class="brand-sub">Mentor Session &middot; {{DATE}}</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-item">
+      <span class="meta-label">Run ID</span>
+      <span class="meta-value mono">{{RUN_ID_SHORT}}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Status</span>
+      <span class="meta-value">
+        <span class="badge {{BADGE_CLASS}}">{{STATUS}}</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<a class="back" href="../../index.html">&#8592; Session List</a>
+
+<section class="stats">
+  <div class="stat" style="--accent: var(--c-run)">
+    <div class="stat-label">Total polls</div>
+    <div class="stat-value">{{TOTAL_POLLS}}</div>
+    <div class="stat-detail">at ~{{TIER3_CADENCE}}s &middot; 500ms would be {{POLLS_500MS}}</div>
+  </div>
+  <div class="stat" style="--accent: var(--c-ok)">
+    <div class="stat-label">Wall time</div>
+    <div class="stat-value">{{WALL_TIME}}</div>
+    <div class="stat-detail">start to terminal</div>
+  </div>
+  <div class="stat" style="--accent: var(--c-purple)">
+    <div class="stat-label">~Payload received</div>
+    <div class="stat-value">{{PAYLOAD_HUMAN}}</div>
+    <div class="stat-detail">~{{TOKEN_PROXY}} token-equivalent</div>
+  </div>
+  <div class="stat" style="--accent: var(--c-run)">
+    <div class="stat-label">Polls reduced</div>
+    <div class="stat-value">{{POLLS_SAVED_PCT}}</div>
+    <div class="stat-detail">{{POLLS_SAVED_DETAIL}}</div>
+  </div>
+  <div class="stat" style="--accent: var(--c-ok)">
+    <div class="stat-label">Context received</div>
+    <div class="stat-value">{{CONTEXT_SAVED_PCT}}</div>
+    <div class="stat-detail">{{CONTEXT_SAVED_DETAIL}}</div>
+  </div>
+</section>
+
+<main>
+  <div>
+    <div class="section-title">Poll Timeline</div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timestamp</th>
+            <th>&Delta;t</th>
+            <th>Status</th>
+            <th>Events</th>
+            <th>Bytes</th>
+            <th>Cumulative</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{POLL_ROWS}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

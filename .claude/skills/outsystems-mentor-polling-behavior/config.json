@@ -1,0 +1,63 @@
+{
+  "_comment": [
+    "Optional config for outsystems-mentor-polling-behavior.",
+    "All keys are optional — delete any key to revert to its default.",
+    "The skill never breaks if this file is missing or partially filled.",
+    "Reload takes effect on the next skill invocation (no restart needed)."
+  ],
+
+  "polling": {
+    "_comment": "Sleep cadence in seconds between status checks per tier.",
+    "tier2CadenceSecs": 30,
+    "tier3CadenceSecs": 30,
+    "maxPollsBeforeWarning": 20
+  },
+
+  "tierOverrides": {
+    "_comment": [
+      "Reclassify individual MCP tools when their behavior changes on your tenant.",
+      "Values: 1 = synchronous (no sleep), 2 = fast async (tier2CadenceSecs), 3 = long async (tier3CadenceSecs).",
+      "Current default classification (do not edit this comment block — edit the values below):",
+      "  Tier 1 (sync):       app_list, app_info, app_refs, env_list, env_apps,",
+      "                       context_screens, context_entities, context_actions,",
+      "                       context_roles, context_structures, context_themes, context_search",
+      "  Tier 2 (fast async): publish_start, deploy_start, extlib_upload, test_setup_start",
+      "  Tier 3 (long async): mentor_get_run",
+      "",
+      "Example: if publish_start now finishes in <10s on your tenant, set:",
+      "  \"publish_start\": 1",
+      "Example: if a new tool 'my_new_tool' behaves like fast async, set:",
+      "  \"my_new_tool\": 2"
+    ]
+  },
+
+  "feedback": {
+    "_comment": [
+      "Controls the 'Tier Review Signal' panel in index.html.",
+      "The signal fires when the rolling average Mentor run duration across",
+      "recent sessions drops below avgMentorDurationSecs, suggesting Mentor",
+      "may now behave more like a Tier 2 tool than Tier 3.",
+      "Set enabled=false to suppress the panel entirely."
+    ],
+    "enabled": true,
+    "minSessionsRequired": 5,
+    "thresholds": {
+      "_comment": [
+        "avgMentorDurationSecs: if the rolling average Mentor run duration",
+        "  across the last minSessionsRequired sessions drops below this value,",
+        "  the signal fires. Default 60s — if Mentor consistently finishes",
+        "  in <60s, consider whether Tier 3 (30s cadence) is still appropriate."
+      ],
+      "avgMentorDurationSecs": 60
+    }
+  },
+
+  "dashboard": {
+    "_comment": [
+      "staleSessionDays: sessions older than this are dimmed in index.html.",
+      "They are NOT deleted — dimming is visual only.",
+      "Set to 0 to disable dimming (all sessions shown at full opacity)."
+    ],
+    "staleSessionDays": 30
+  }
+}

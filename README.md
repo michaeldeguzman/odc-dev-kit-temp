@@ -19,9 +19,11 @@ Claude Code workspace template for building OutSystems Developer Cloud (ODC) app
 2. Register the MCP server using the tenant in `PROJECT_CONFIG.md`
 3. Authenticate when prompted
 
-## Skills
+## Skills (`.claude/skills/`)
 
-### `odc-crud-wrapper`
+Project-scoped — Claude Code auto-discovers these from `.claude/skills/<name>/SKILL.md` on every clone. No manual install step.
+
+### `dbresults-odc-crud-wrapper`
 
 Generates the ModelApplication SampleEntity CRUD wrapper pattern for any ODC entity.
 
@@ -45,13 +47,36 @@ Creates 4 server actions per entity:
 Create CRUD wrapper for <EntityName>
 ```
 
-### `odc-catchup`
+### `dbresults-odc-catchup`
 
 Recaps current app state at session start — reads `CLAUDE.md` build history and calls `context_actions` / `context_entities` to show what's deployed.
 
-### `odc-ship`
+### `dbresults-odc-ship`
 
 Handles the full mentor → publish → deploy flow, including `no_changes_detected` verification and `CLAUDE.md` build log update.
+
+### dbresults-skills catalog (`outsystems-*`)
+
+Vendored from [dbresults/dbresults-skills](https://github.com/dbresults/dbresults-skills) (MIT, prototype/R&D status — see [docs/dbresults-skills/CATALOG-README.md](docs/dbresults-skills/CATALOG-README.md)). 12 skills covering explore/build/operate workflows on top of the `outsystems` MCP server:
+
+| Skill | Category | What it produces |
+|---|---|---|
+| `outsystems-tenant-architecture` | Explore | Interactive HTML graph of every asset in the tenant |
+| `outsystems-app-architecture` | Explore | Interactive HTML graph of one app's screens/actions/entities/roles |
+| `outsystems-ai-agent-landscape` | Explore | HTML dashboard of every AI agent + model connection |
+| `outsystems-dependency-impact` | Explore | Reverse-dependency explorer ("who breaks if I publish X?") |
+| `outsystems-design-to-app` | Build | Figma/screenshot/mockup → working ODC app via Mentor |
+| `outsystems-spec-driven-build` | Build | Text spec → new app via Mentor + guardrails |
+| `outsystems-plan-to-mentor` | Build | Coverage-review a saved plan against its PRD, emit Mentor-ready prompts |
+| `outsystems-mentor-copilot` | Build | 11-task library + 3 workflows on top of ODC Mentor |
+| `outsystems-custom-code` | Build | C# External Logic library reference + workflow |
+| `outsystems-deploy-preview` | Operate | HTML risk preview of a Dev→Test / Test→Prod promotion |
+| `outsystems-app-documentation` | Operate | Markdown docs for one app (Confluence-ready) |
+| `outsystems-mentor-polling-behavior` | Optional companion | Enforces Mentor polling discipline, tracks token telemetry |
+
+Docs: [`docs/dbresults-skills/INTRO.md`](docs/dbresults-skills/INTRO.md) (plain-English overview), [`SKILL-INDEX.md`](docs/dbresults-skills/SKILL-INDEX.md) (which skill for which job), [`TRIGGER-MAP.md`](docs/dbresults-skills/TRIGGER-MAP.md) (disambiguation rules), [`CONVENTIONS.md`](docs/dbresults-skills/CONVENTIONS.md) (shared engineering rules).
+
+> These are marked prototype/R&D by the upstream maintainer — not for customer-facing production work. `outsystems-design-to-app`'s Figma path additionally needs a separate Figma MCP server connected (`mcp__plugin_figma_figma__*` tools) — not required for its screenshot/HTML-mockup paths.
 
 ## Target App
 

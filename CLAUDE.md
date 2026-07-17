@@ -1,5 +1,10 @@
 # OutSystems MCP — Project Notes
 
+## Conventions
+
+@rules/error-handling.md
+@rules/database.md
+
 ## Build History
 
 Record each session's builds here. Timestamps = revision commit times (includes Mentor AI execution + ODC publish compile).

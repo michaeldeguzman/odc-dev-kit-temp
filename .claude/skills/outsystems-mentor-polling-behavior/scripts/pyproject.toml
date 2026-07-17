@@ -1,0 +1,15 @@
+[project]
+name = "outsystems-mentor-polling-behavior"
+version = "1.1.0"
+description = "Session lifecycle, telemetry, config, and HTML rendering driver for the outsystems-mentor-polling-behavior skill."
+requires-python = ">=3.7"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

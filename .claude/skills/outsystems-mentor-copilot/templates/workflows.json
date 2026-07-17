@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "notes": "Workflows chain task templates using Mentor's conversational session. Each step reuses the mentor_session_id + refreshed mentor_session_token from the previous step's terminal result. The 'follow_up_prompt' is sent as a new turn's prompt — task_id may also be referenced instead.",
+  "workflows": [
+    {
+      "id": "audit-and-fix",
+      "name": "Audit, then propose fixes",
+      "description": "Runs a quality review; if findings exist, asks Mentor to draft fixes for the top items in the same session.",
+      "steps": [
+        {
+          "task_id": "quality-review"
+        },
+        {
+          "follow_up_prompt": "For the top {{fix_count}} findings from the previous review, draft the actual changes needed: which OutSystems elements to modify and how (specific node-level guidance, not abstract advice). Output as a numbered list, one finding per item, ready for an engineer to implement.",
+          "vars": {
+            "fix_count": { "type": "integer", "default": 5 }
+          }
+        }
+      ],
+      "terminal": {
+        "action": "render_report",
+        "note": "No auto-publish. Surface the suggestions for human review."
+      }
+    },
+    {
+      "id": "add-feature-then-test",
+      "name": "Add feature + generate tests",
+      "description": "Implements a feature, then generates tests for the added action(s) in the same conversation.",
+      "steps": [
+        {
+          "task_id": "add-feature"
+        },
+        {
+          "follow_up_prompt": "Now generate test scaffolds specifically for the actions you just added in the previous step. Cover happy path, two edge cases, and one error path per action. Use the app's existing test patterns if present."
+        }
+      ],
+      "terminal": {
+        "action": "render_report",
+        "note": "Report contains both the implementation plan and the matching tests."
+      }
+    },
+    {
+      "id": "publish-after-mentor",
+      "name": "Run task, then surface publish handoff",
+      "description": "Runs any task; if the terminal result includes a refreshed mentor_session_token (meaning Mentor produced changes), surfaces the token + a ready-to-fire publish_start call. Does NOT auto-publish — explicit human confirmation required.",
+      "steps": [
+        {
+          "task_id": "{{task_id}}",
+          "vars": {
+            "task_id": {
+              "type": "string",
+              "required": true,
+              "description": "Which task to run before the publish handoff"
+            }
+          }
+        }
+      ],
+      "terminal": {
+        "action": "surface_publish_handoff",
+        "note": "If result.mentor_session_token is present, the report ends with: 'Ready to publish. Run mentor_session_token=<token> publish_start(app_key=...) to commit, or discard the session to drop the changes.' Never call publish_start automatically."
+      }
+    }
+  ]
+}

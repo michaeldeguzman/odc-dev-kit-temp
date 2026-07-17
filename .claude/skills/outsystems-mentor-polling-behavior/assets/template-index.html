@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<!-- template-version: 1.2.0 -->
+<!--
+  outsystems-mentor-polling-behavior — Session List template.
+  Populated by run.py cmd_render via _render_template().
+  Slots: {{SESSION_COUNT}}, {{STATS_HTML}}, {{SIGNAL_HTML}},
+         {{TABLE_HTML}}, {{TIER_TABLE_HTML}}
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mentor Polling Behavior — Session List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --os-bg:       #0A0A0F;
+    --os-bg-2:     #11111A;
+    --os-card:     #161620;
+    --os-card-2:   #1C1C28;
+    --os-border:   #262633;
+    --os-text:     #F5F5F7;
+    --os-text-muted: #9B9BA8;
+    --os-text-dim:   #6B6B7A;
+    --os-red:      #FF3D52;
+    --os-red-dark: #C42030;
+    --os-red-glow: rgba(255, 61, 82, 0.18);
+    --c-ok:        #34D399;
+    --c-fail:      #FF3D52;
+    --c-cancel:    #FBBF24;
+    --c-run:       #3B82F6;
+    --c-purple:    #B57BFF;
+    --c-orange:    #FB923C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--os-bg);
+    color: var(--os-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+  }
+
+  a { color: var(--c-run); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Header ── */
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    background: linear-gradient(180deg, #0E0E16 0%, #0A0A0F 100%);
+    border-bottom: 1px solid var(--os-border);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--os-red) 0%, var(--os-red-dark) 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px var(--os-red-glow);
+    font-weight: 800; color: white; font-size: 18px;
+  }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand-sub  { font-size: 0.8em; color: var(--os-text-muted); margin-top: 2px; }
+  .header-meta { display: flex; gap: 22px; align-items: center; }
+  .meta-item   { display: flex; flex-direction: column; }
+  .meta-label  {
+    font-size: 0.7em; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--os-text-dim); font-weight: 600;
+  }
+  .meta-value { font-size: 0.87em; color: var(--os-text); font-weight: 500; margin-top: 3px; }
+
+  /* ── Stats bar ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px 28px;
+    background: var(--os-bg);
+    border-bottom: 1px solid var(--os-border);
+  }
+  .stat {
+    background: linear-gradient(180deg, var(--os-card) 0%, var(--os-card-2) 100%);
+    border: 1px solid var(--os-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    position: relative; overflow: hidden;
+  }
+  .stat::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--accent, var(--os-red));
+  }
+  .stat-label  {
+    font-size: 0.7em; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--os-text-muted); font-weight: 600;
+  }
+  .stat-value  {
+    font-size: 26px; font-weight: 700; color: var(--os-text);
+    margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .stat-detail { font-size: 0.73em; color: var(--os-text-dim); margin-top: 2px; }
+
+  /* ── Main layout ── */
+  main { padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+  .section-title {
+    font-size: 0.73em; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--os-text-muted);
+    font-weight: 600; margin-bottom: 12px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, var(--os-card) 0%, var(--os-card-2) 100%);
+    border: 1px solid var(--os-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #0D0D16; color: var(--os-text-dim);
+    font-weight: 600; font-size: 0.7em; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 10px 16px;
+    text-align: left; border-bottom: 1px solid var(--os-border);
+  }
+  td {
+    padding: 11px 16px; border-bottom: 1px solid var(--os-border);
+    color: var(--os-text);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255, 255, 255, 0.02); }
+  tr.stale td { opacity: .4; }
+
+  .mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.73em; color: var(--os-text-muted);
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 0.73em; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .badge::before {
+    content: ""; width: 6px; height: 6px;
+    border-radius: 50%; background: currentColor; opacity: 0.7;
+  }
+  .badge-ok     { background: rgba(52, 211, 153, 0.12); color: var(--c-ok);     border: 1px solid rgba(52, 211, 153, 0.25); }
+  .badge-fail   { background: rgba(255, 61, 82, 0.12);  color: var(--c-fail);   border: 1px solid rgba(255, 61, 82, 0.25); }
+  .badge-cancel { background: rgba(251, 191, 36, 0.12); color: var(--c-cancel); border: 1px solid rgba(251, 191, 36, 0.25); }
+  .badge-run    { background: rgba(59, 130, 246, 0.12); color: var(--c-run);    border: 1px solid rgba(59, 130, 246, 0.25); }
+
+  .empty { color: var(--os-text-dim); padding: 48px; text-align: center; }
+
+  /* ── Signal panel ── */
+  .signal-panel {
+    background: rgba(251, 146, 60, 0.06);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    border-radius: 12px;
+    padding: 18px 22px;
+  }
+  .signal-panel h2 {
+    font-size: 0.87em; font-weight: 700;
+    color: var(--c-orange); margin-bottom: 8px;
+  }
+  .signal-panel p {
+    color: var(--os-text-muted);
+    line-height: 1.65; max-width: 720px;
+  }
+  .signal-panel .metrics { margin-top: 12px; display: flex; gap: 28px; flex-wrap: wrap; }
+  .signal-panel .m { font-size: 0.8em; color: var(--os-text-dim); }
+  .signal-panel .m span { color: var(--c-orange); font-weight: 600; }
+
+  /* ── About panel ── */
+  .about-panel {
+    background: var(--os-bg-2);
+    border-bottom: 1px solid var(--os-border);
+    padding: 0 28px;
+  }
+  .about-panel summary {
+    cursor: pointer;
+    padding: 13px 0;
+    font-weight: 600;
+    color: var(--os-text-muted);
+    user-select: none;
+    list-style: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .about-panel summary::-webkit-details-marker { display: none; }
+  .about-panel summary::before {
+    content: "▸";
+    font-size: 0.87em;
+    color: var(--os-text);
+    transition: transform 200ms;
+    display: inline-block;
+  }
+  .about-panel details[open] summary::before { transform: rotate(90deg); }
+  .about-panel details[open] summary { color: var(--os-text); }
+  .about-body {
+    padding: 4px 0 22px 0;
+    line-height: 1.75;
+    color: var(--os-text-muted);
+  }
+  .about-body p { margin-bottom: 12px; }
+  .about-body p:last-child { margin-bottom: 0; }
+  .about-body strong { color: var(--os-text); font-weight: 600; }
+  .about-body ul { padding-left: 22px; margin-bottom: 12px; }
+  .about-body ul li { margin-bottom: 5px; }
+  .about-body em { color: var(--c-run); font-style: normal; }
+
+  /* ── Tier table ── */
+  .tier-table-wrap table { width: 100%; border-collapse: collapse; }
+  .tier-tool {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.73em; color: var(--os-text-muted);
+  }
+  .tier-desc { font-size: 0.8em; color: var(--os-text-dim); }
+  .tier-badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 999px; font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .t1 { background: rgba(52, 211, 153, 0.12); color: var(--c-ok);     border: 1px solid rgba(52, 211, 153, 0.2); }
+  .t2 { background: rgba(59, 130, 246, 0.12); color: var(--c-run);    border: 1px solid rgba(59, 130, 246, 0.2); }
+  .t3 { background: rgba(181, 123, 255, 0.12); color: var(--c-purple); border: 1px solid rgba(181, 123, 255, 0.2); }
+  .override-note { font-size: 0.67em; color: var(--c-orange); margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">O</div>
+    <div>
+      <div class="brand-name">Mentor Polling Behavior</div>
+      <div class="brand-sub">OutSystems Developer Cloud &middot; Session Telemetry</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-item">
+      <span class="meta-label">Sessions</span>
+      <span class="meta-value">{{SESSION_COUNT}}</span>
+    </div>
+  </div>
+</header>
+
+<div class="about-panel">
+  <details>
+    <summary>What is outsystems-mentor-polling-behavior skill?</summary>
+    <div class="about-body">
+      <p>
+        Run Mentor efficiently. This skill handles the polling discipline so you don't have to.
+      </p>
+      <p>
+        When you ask Mentor to do something, it runs asynchronously &mdash; the agent has to
+        keep checking <em>"are you done yet?"</em> every few milliseconds. By default, that
+        check fires every 500ms. On a 6-minute Mentor run, that's over 700 checks &mdash; each
+        one bringing verbose intermediate output back into the conversation and burning tokens.
+        This skill changes the cadence to 30 seconds, reducing those 700 checks to about 12,
+        with no change to how long Mentor takes to finish.
+      </p>
+      <p>
+        It also records what happened &mdash; poll count, timing, how much context was saved
+        &mdash; so you can benchmark over time and know if the discipline is working.
+      </p>
+      <p><strong>Three things it does:</strong></p>
+      <ul>
+        <li>Say <em>"use Mentor on [app] to do X"</em> &mdash; runs Mentor with correct polling discipline</li>
+        <li>Say <em>"generate the Mentor dashboard"</em> &mdash; renders your session history as HTML</li>
+        <li>Say <em>"Mentor session summary"</em> &mdash; cross-session digest and trend analysis</li>
+      </ul>
+      <p>
+        <strong>One thing it doesn't do:</strong> it doesn't make Mentor faster. The run takes
+        the same time. You just stop paying for the polling overhead.
+      </p>
+    </div>
+  </details>
+</div>
+
+<section class="stats">
+  {{STATS_HTML}}
+</section>
+
+<main>
+  {{SIGNAL_HTML}}
+
+  <div>
+    <div class="section-title">Session History</div>
+    <div class="card">{{TABLE_HTML}}</div>
+  </div>
+
+  <div>
+    <div class="section-title">Operation Tier Classification</div>
+    <div class="card">{{TIER_TABLE_HTML}}</div>
+  </div>
+</main>
+
+</body>
+</html>
