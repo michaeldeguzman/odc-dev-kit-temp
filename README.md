@@ -73,6 +73,15 @@ Full-stack scaffold for one entity: the same 4-action CRUD layer as `dbresults-o
 Scaffold <EntityName>
 ```
 
+### `dbresults-odc-bdd-crud-tests`
+
+Adds BDD-style (Gherkin) backend tests for an entity's CRUD wrapper actions using OutSystems' official BDD Framework Forge component. Always opens with an opt-in question — never assumes BDD is wanted just because someone asks for "tests"; for lighter test scaffolding, use `outsystems-mentor-copilot`'s `test-generation` task instead. Handles the real cross-app wiring (Service Actions, not a Library — see the skill for why the Library approach doesn't work) and creates the separate test app via `app_create` → `dbresults-odc-new-app-baseline`.
+
+**Invoke:**
+```
+Add BDD tests for <EntityName>
+```
+
 ### dbresults-skills catalog (`outsystems-*`)
 
 Vendored from [dbresults/dbresults-skills](https://github.com/dbresults/dbresults-skills) (MIT, prototype/R&D status — see [docs/dbresults-skills/CATALOG-README.md](docs/dbresults-skills/CATALOG-README.md)). 12 skills covering explore/build/operate workflows on top of the `outsystems` MCP server:
@@ -95,6 +104,15 @@ Vendored from [dbresults/dbresults-skills](https://github.com/dbresults/dbresult
 Docs: [`docs/dbresults-skills/INTRO.md`](docs/dbresults-skills/INTRO.md) (plain-English overview), [`SKILL-INDEX.md`](docs/dbresults-skills/SKILL-INDEX.md) (which skill for which job), [`TRIGGER-MAP.md`](docs/dbresults-skills/TRIGGER-MAP.md) (disambiguation rules), [`CONVENTIONS.md`](docs/dbresults-skills/CONVENTIONS.md) (shared engineering rules).
 
 > These are marked prototype/R&D by the upstream maintainer — not for customer-facing production work. `outsystems-design-to-app`'s Figma path additionally needs a separate Figma MCP server connected (`mcp__plugin_figma_figma__*` tools) — not required for its screenshot/HTML-mockup paths.
+
+## Agents (`.claude/agents/`)
+
+Project-scoped, same auto-discovery as skills.
+
+| Agent | Fires when |
+|---|---|
+| `odc-action-reviewer` | After Mentor creates/modifies `_Validate`/`_Upsert`/`_GetCanRemove`/`_Remove` actions or shared CRUD infrastructure — verifies `dbresults-odc-crud-wrapper` compliance |
+| `odc-test-reviewer` | After Mentor creates/modifies a BDD Framework test scenario — verifies `dbresults-odc-bdd-crud-tests` compliance (assert placement, cross-app Service Action wiring, auth token setup). Invokes `odc-action-reviewer` first if the scenario touched CRUD wrapper actions — doesn't duplicate that agent's checks |
 
 ## Target App
 

@@ -88,7 +88,7 @@
       "name": "Add a feature",
       "category": "build",
       "description": "Implement a new feature following the app's existing conventions.",
-      "prompt": "Add a {{feature_name}} feature to this application. Requirements: {{requirements}}. Follow existing conventions in this app for screens (layout, components used), actions (naming, error handling), and entities (naming, relationships). Reuse existing patterns where possible — do not introduce new dependencies unless necessary. Output: (1) entities to add/modify, (2) actions to add, (3) screens to add, (4) wiring (menu entries, navigation, role permissions), (5) any data migration steps.",
+      "prompt": "Add a {{feature_name}} feature to this application. Requirements: {{requirements}}. Follow existing conventions in this app for screens (layout, components used), actions (naming, error handling), and entities (naming, relationships). Place every new server/client action inside a named folder — use the entity name for CRUD-style actions, or a folder named after {{feature_name}} for everything else; never leave new actions in the app's root/default folder. Reuse existing patterns where possible — do not introduce new dependencies unless necessary. Output: (1) entities to add/modify, (2) actions to add (with folder), (3) screens to add, (4) wiring (menu entries, navigation, role permissions), (5) any data migration steps.",
       "vars": {
         "feature_name": {
           "type": "string",

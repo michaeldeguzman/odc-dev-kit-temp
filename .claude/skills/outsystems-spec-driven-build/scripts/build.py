@@ -132,7 +132,15 @@ in field testing. Treat each as a HARD requirement, not a hint.
     looks correct. See
     `outsystems-design-to-app/references/gotchas/tablerecords-seeding.md`.
 
-11. **At the end, summarize:** what was created (count of entities,
+11. **Organize every new server/client action into a named folder.**
+    Never leave actions in the app's root/default folder. Use the
+    entity name for CRUD-style actions (e.g. folder `Employee` for
+    `Employee_Validate`/`Employee_Upsert`/etc.), or a feature-name
+    folder for everything else — confirm the feature folder name with
+    the user rather than inventing one. Mentor defaults to app root if
+    not told otherwise.
+
+12. **At the end, summarize:** what was created (count of entities,
     screens, actions, roles), what was skipped (and why), and any
     manual steps the user needs to take (e.g. add a library via Studio).
 """

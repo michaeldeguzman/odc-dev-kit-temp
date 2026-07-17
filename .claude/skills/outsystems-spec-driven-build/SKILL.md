@@ -166,6 +166,8 @@ The built prompt includes guardrails like:
 - *"If you need to add a referenced library, ask the user to do it
   manually in Studio. Do NOT call `eSpace.AddDependency` — known
   broken."* (Peter's AddDependency NRE fix)
+- *"Organize every new server/client action into a named folder —
+  never leave them in app root."* (see `rules/organization.md`)
 
 Then call `mcp__outsystems__mentor_start`:
 
