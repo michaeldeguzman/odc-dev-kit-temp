@@ -55,6 +55,15 @@ Recaps current app state at session start — reads `CLAUDE.md` build history an
 
 Handles the full mentor → publish → deploy flow, including `no_changes_detected` verification and `CLAUDE.md` build log update.
 
+### `dbresults-odc-new-app-baseline`
+
+Run right after `app_create` mints a new app, before any business build. `app_create`'s shell is genuinely empty (verified: 0 screens, 0 actions, 0 themes, 1 auto role) — this scaffolds the standard authentication/theme/layout foundation every real ODC web app needs: 3 UI flows, 2 themes, the app role, client variables, images, layout/common blocks, 6 auth screens (Login, password recovery, profile, etc.), server/client actions, and email templates.
+
+**Invoke:**
+```
+Set up the new app baseline for <AppName>
+```
+
 ### `dbresults-odc-scaffold-entity`
 
 Full-stack scaffold for one entity: the same 4-action CRUD layer as `dbresults-odc-crud-wrapper`, plus a searchable/sortable/paginated list screen and a create/edit detail screen wired to those actions. Use `dbresults-odc-crud-wrapper` instead if you only need the server actions.
