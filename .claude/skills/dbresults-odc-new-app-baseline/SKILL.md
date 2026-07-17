@@ -1,6 +1,6 @@
 ---
 name: dbresults-odc-new-app-baseline
-description: Use right after `app_create` mints a new ODC web app, BEFORE any business build (`outsystems-spec-driven-build`, `outsystems-design-to-app`, or `dbresults-odc-scaffold-entity`). `app_create`'s "blank" shell is genuinely empty — 0 screens, 0 actions, 0 themes, only 1 auto-generated role (verified empirically against a live tenant) — it does NOT include the standard authentication/theme/layout foundation every real ODC web app needs. This skill scaffolds that foundation: 3 UI flows, 2 themes, the app role, client variables, images, layout blocks, common blocks, 6 auth screens, server/client actions, and email templates. Use when asked to "set up a new app", "scaffold the app baseline", "add login/auth to this app", "this app has no login screen", or before starting any greenfield build.
+description: Use right after `app_create` mints a new ODC web app, BEFORE any business build (`outsystems-spec-driven-build`, `outsystems-design-to-app`, or `dbresults-odc-scaffold-entity`). `app_create`'s "blank" shell is genuinely empty — 0 screens, 0 actions, 0 themes, only 1 auto-generated role (verified empirically against a live tenant) — it does NOT include the standard authentication/theme/layout foundation every real ODC web app needs. This skill scaffolds that foundation: 3 UI flows (Common, Layouts, Emails — plus an intentionally empty MainFlow), 2 themes, the app role, client variables, images, layout blocks, common blocks, 6 auth screens, server/client actions, email templates, and the app-wide OnException handler. Use when asked to "set up a new app", "scaffold the app baseline", "add login/auth to this app", "this app has no login screen", "add a global exception handler", "set up OnException", or before starting any greenfield build.
 ---
 
 # ODC New App Baseline — Authentication / Theme / Layout Scaffold
@@ -57,10 +57,17 @@ that already exist.
 
 ### 1. UI Flows
 
-- **Common** — authentication screens, shared blocks, email templates
+- **Common** — authentication screens, shared blocks, email templates, the
+  app-wide `OnException` handler
 - **Layouts** — layout blocks used by all screens
 - **Emails** — email templates (nested under Common in some tenants; ask
   if Mentor places it differently)
+- **MainFlow** — intentionally **empty** on a fresh scaffold: no screens,
+  no blocks, no exception handler. This is where the app's own business
+  screens go later (`dbresults-odc-scaffold-entity` or the spec/design
+  build skills add to it) — don't add anything here as part of this
+  baseline, and don't treat an empty MainFlow as a sign the scaffold is
+  incomplete.
 
 ### 2. Themes
 
@@ -220,6 +227,32 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
 - **`RedirectToURL`** — client-side URL redirect, used throughout the
   app. Input parameter: `URL` (Text).
 
+### 13. OnException Handler (in Common flow)
+
+The app-wide exception handler — set as the app's exception flow/action,
+lives in Common. Four branches, each its own `ExceptionHandler` node:
+
+- **Security Exception** (`AbortTransaction: true`, `LogError: false`) —
+  checks `GetUserId() <> NullTextIdentifier()`:
+  - Logged in → redirect to `InvalidPermissions`
+  - Not logged in → save current URL to `Client.LastURL` (via
+    `GetBookmarkableURL()`), then redirect to `Login`
+- **Database Exception** (`AbortTransaction: true`, `LogError: true`) —
+  show error message *"There was a problem with the database request.
+  Please contact the administrator"*, then `End`
+- **Communication Exception** (`AbortTransaction: true`, `LogError: true`)
+  — show error message *"There was a problem communicating with the
+  server. Please try again or contact your administrator"*, then `End`.
+  Comment on this branch: fires on no internet connection or server
+  timeout.
+- **All Exceptions** (catch-all, `AbortTransaction: true`, `LogError:
+  true`) — show generic error message *"There was a problem. Please
+  contact the administrator"*, then `End`
+
+Order matters: the specific handlers (Security, Database, Communication)
+must be checked before the All Exceptions catch-all — a catch-all placed
+first would swallow the specific branches before they ever fire.
+
 ## Required References
 
 This baseline depends on assets outside the app itself — confirm they're
@@ -239,17 +272,21 @@ referenced (not rebuilt):
 
 Don't fire this as one giant Mentor call — batch it, same reasoning as
 `dbresults-odc-scaffold-entity`: smaller batches isolate failures faster,
-and this baseline is large (12 sub-layers). Suggested batching, each a
+and this baseline is large (13 sub-layers). Suggested batching, each a
 separate `mentor_start`/resumed-session turn, confirmed working before
 moving to the next:
 
 1. **Flows + theme + role + client variables + images** — structural
-   scaffolding with no logic yet.
+   scaffolding with no logic yet. Includes creating the empty `MainFlow`
+   (no screens/blocks/handler needed — just the flow itself).
 2. **Layout blocks + common blocks** — the shared UI chrome.
 3. **Screens** (Login → RecoverPasswordRequest → RecoverPasswordReset →
    ChangePassword → InvalidPermissions → UserProfile).
 4. **Server actions + client actions** (Authentication folder).
 5. **Email templates + external site**.
+6. **OnException handler** (Common flow) — all four branches (Security,
+   Database, Communication, All Exceptions), then set it as the app's
+   exception handler.
 
 Prompt each batch with the exact names, types, and logic from the
 relevant section above — Mentor performs worse on vague asks
@@ -273,6 +310,14 @@ relevant section above — Mentor performs worse on vague asks
 - **No business logic here** — this skill only produces the
   authentication/theme/layout foundation. Business entities/screens are
   `dbresults-odc-scaffold-entity`'s job, run afterward.
+- **MainFlow ships empty on purpose** — a fresh scaffold has 0 screens, 0
+  blocks, 0 exception handler in MainFlow. That's the expected end state,
+  not a gap to fill in as part of this baseline.
+- **OnException is app-wide, not per-flow** — it lives in Common but is
+  registered as the whole app's exception handler, so it also covers
+  unhandled exceptions raised from MainFlow screens once those exist.
+  Specific handlers (Security/Database/Communication) must precede the
+  All Exceptions catch-all or they'll never fire.
 
 ## Verification Checklist
 
@@ -292,6 +337,12 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] Email templates exist under the Emails flow, themed with
       `EmailTheme`
 - [ ] `RedirectToURL` external site exists
+- [ ] `MainFlow` exists and is empty (0 screens, 0 blocks, 0 exception
+      handler) — confirm via Mentor/Service Studio, not just
+      `context_screens` (an empty flow won't list anything to check)
+- [ ] `OnException` in Common has all 4 branches (Security, Database,
+      Communication, All Exceptions) in that precedence order, and is
+      registered as the app's exception handler
 - [ ] 0 errors in validation after each batch before moving to the next
 
 ## Related Skills
