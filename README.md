@@ -55,6 +55,15 @@ Recaps current app state at session start — reads `CLAUDE.md` build history an
 
 Handles the full mentor → publish → deploy flow, including `no_changes_detected` verification and `CLAUDE.md` build log update.
 
+### `dbresults-odc-scaffold-entity`
+
+Full-stack scaffold for one entity: the same 4-action CRUD layer as `dbresults-odc-crud-wrapper`, plus a searchable/sortable/paginated list screen and a create/edit detail screen wired to those actions. Use `dbresults-odc-crud-wrapper` instead if you only need the server actions.
+
+**Invoke:**
+```
+Scaffold <EntityName>
+```
+
 ### dbresults-skills catalog (`outsystems-*`)
 
 Vendored from [dbresults/dbresults-skills](https://github.com/dbresults/dbresults-skills) (MIT, prototype/R&D status — see [docs/dbresults-skills/CATALOG-README.md](docs/dbresults-skills/CATALOG-README.md)). 12 skills covering explore/build/operate workflows on top of the `outsystems` MCP server:
