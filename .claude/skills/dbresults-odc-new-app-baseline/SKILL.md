@@ -52,17 +52,30 @@ that already exist.
 5. Confirm the app's `kind` is a web app (`CrossDevice`/`WebApplication`) —
    this baseline is web-specific; a `Mobile` app shell needs a different
    (not-yet-covered) baseline.
-6. **Check `OutSystemsUI` reference version compatibility.** The
-   `Phosphor2.0` icon library (step 2 below) requires `OutSystemsUI`
-   version **2.28.0 or later**. Have Mentor inspect the app's current
-   `OutSystemsUI` reference version before Batch 1 runs. If it's older:
-   bump the reference to the latest available version in the tenant
-   first, and only then set `IconLibrary: Phosphor2.0`; if no compatible
-   version is available, fall back to the default icon library instead
-   and flag this to the user rather than setting Phosphor2.0 anyway.
-   Confirmed root cause of a real "Icon library compatibility" warning
-   in a prior run — this step didn't exist and the mismatch shipped
-   silently.
+6. **Check `OutSystemsUI` reference version compatibility — and don't
+   trust a proxy signal for it.** The `Phosphor2.0` icon library (step 2
+   below) requires `OutSystemsUI` version **2.28.0 or later**. A prior
+   run tried to confirm this indirectly — checking whether `Phosphor2.0`
+   was *accepted* as a valid `IconLibrary` string value — and concluded
+   compatibility was fine. It wasn't: the "Icon library compatibility"
+   warning still showed up in that app's final warning report. Accepting
+   the string is not proof of version compatibility; the enum can list a
+   value as syntactically valid across versions independent of whether
+   the referenced revision actually contains the feature. Instead: have
+   Mentor read the `OutSystemsUI` reference's actual version/revision
+   fields directly (same fields used for the `(System)` reference health
+   check below — `Revision`, `Version`, `Hash`, `IsFixedVersion`). If a
+   definitive version number isn't obtainable via the Model API, default
+   to refreshing/bumping the reference to the latest available revision
+   in the tenant first (same pattern as "Refreshing a stale `(System)`
+   reference" under Model API Patterns), regardless of what the enum
+   check suggested — then set `IconLibrary: Phosphor2.0`. If no
+   compatible version is available even after refreshing, fall back to
+   the default icon library and flag this to the user rather than
+   setting Phosphor2.0 anyway. After Batch 1, explicitly re-check
+   `GetValidationMessages` for "Icon library compatibility" before moving
+   on — don't assume the pre-flight check was sufficient without
+   confirming the warning is actually gone.
 7. **Check the `(System)` reference's health before touching anything.**
    Have Mentor read the reference's `Hash` field. A prior run had this
    sitting at an all-zero hash (`00000000-0000-0000-0000-000000000000`)
@@ -180,6 +193,35 @@ impossible to get subtly wrong the way a PNG CRC can be.
 - **`LayoutBase` / `LayoutBaseSection`** — utility layouts for fully
   custom page structures.
 
+**Every parameter above must be bound to a real widget property on the
+block's own root/wrapper container — not just declared and left for a
+future screen to pass a value into.** A prior run left `ExtendedClass`,
+`EnableAccessibilityFeatures`, `HasFixedHeader`, and `MenuBehavior` all
+declared-but-unread inside their own blocks — this is the exact same
+"declared but never consumed" defect as an unwired action, just applied
+to an input parameter instead of a screen action. Concretely:
+
+- `ExtendedClass` (all three blocks) — bind into the root container's own
+  `ExtendedClass`/CSS-class expression, e.g.
+  `"layout-blank " + ExtendedClass` (adjust the base class name per
+  block). This is a real, permanent binding — it doesn't need any future
+  screen to exist first.
+- `EnableAccessibilityFeatures` (all three blocks) — bind into the same
+  root container's class expression conditionally, e.g.
+  `If(EnableAccessibilityFeatures, " a11y-enabled", "")` appended to the
+  `ExtendedClass` expression above.
+- `HasFixedHeader` (`LayoutTopMenu`, `LayoutSideMenu`) — bind into the
+  `Header` placeholder's own container class expression, e.g.
+  `If(HasFixedHeader, "fixed-header", "")`.
+- `MenuBehavior` (`LayoutSideMenu` only) — bind into the `Navigation`
+  placeholder's `<aside>` container class expression (or a data
+  attribute consumed by the side-menu JS behavior), e.g.
+  `"side-menu-" + MenuBehavior`.
+
+Wire all four bindings while building each block in Batch 2 — this
+requires zero business screens or menu items to exist first, unlike
+`Menu.ActiveItem`/`ActiveSubItem` below, so there's no reason to defer it.
+
 ### 7. Common Blocks (in Common flow)
 
 - **`ApplicationTitle`** — displays app logo + app name (via
@@ -188,11 +230,18 @@ impossible to get subtly wrong the way a PNG CRC can be.
 - **`MenuIcon`** — clickable hamburger icon to open/close the side menu
   on small screens.
 - **`Menu`** — navigation block with a `PageLinks` container (menu item
-  links) and a `LoginInfo` container (embeds `UserInfo`). Parameters:
-  `ActiveItem` (Integer, default -1), `ActiveSubItem` (Integer, default
-  -1). Lifecycle: `OnReady` (calls `MenuReady`, `SetActiveMenuItems`),
-  `OnParametersChanged` (calls `SetMenuListeners`), `OnDestroy` (calls
-  `MenuDestroy`). `HideMenu` screen action calls `ToggleSideMenu`.
+  links) and a `LoginInfo` container (embeds `UserInfo`). Lifecycle:
+  `OnReady` (calls `MenuReady`, `SetActiveMenuItems`), `OnParametersChanged`
+  (calls `SetMenuListeners`), `OnDestroy` (calls `MenuDestroy`).
+  `HideMenu` screen action calls `ToggleSideMenu`. **Do not add
+  `ActiveItem`/`ActiveSubItem` parameters at baseline stage** — unlike the
+  layout parameters above, these have no real container to bind to yet
+  (`PageLinks` has zero items until real navigation links exist, and
+  `MainFlow` is intentionally empty — see Key Patterns), so declaring them
+  now only produces an unfixable "Unused Element" warning that sits there
+  until business screens exist. Add them later, at the same time real
+  menu item links are added to `PageLinks` (`dbresults-odc-scaffold-entity`
+  or a spec/design build), when there's finally something to bind them to.
 - **`UserInfo`** — shows logged-in user avatar + name (link to
   `UserProfile`) + logout icon; shows a login link if not logged in.
   `ClientLogout` screen action calls `DoLogout` then redirects.
@@ -424,12 +473,18 @@ actions, or lifecycle hooks:
 > Assign-then-navigate, a bound widget event) — not just the action's
 > internal logic in isolation. Every non-lifecycle screen/client action
 > you create in this batch must have at least one real caller (a widget
-> event or another action) by the end of this batch. Before ending the
-> turn, check `GetValidationMessages` for "Unused Action"/"Unused
-> Element"/"Unused Local Variable" warnings on anything created in *this*
-> batch specifically, and wire or remove them now — do not defer to a
-> later batch or assume they'll "clear once wired," because unless you
-> verify it in this same turn, they won't.
+> event or another action) by the end of this batch. **The same rule
+> applies to every declared input parameter on a block or screen** — a
+> parameter is not "done" once declared; it must be bound into a real
+> widget property (a CSS class expression, a data attribute, a conditional)
+> inside that same block/screen, exactly like the explicit bindings
+> specified for layout block parameters in section 6 above. A declared,
+> unbound parameter produces the same class of "Unused Element" warning as
+> an unwired action. Before ending the turn, check `GetValidationMessages`
+> for "Unused Action"/"Unused Element"/"Unused Local Variable" warnings on
+> anything created in *this* batch specifically, and wire or remove them
+> now — do not defer to a later batch or assume they'll "clear once
+> wired," because unless you verify it in this same turn, they won't.
 
 ### Avoiding stub-naming collisions across batches
 
@@ -451,13 +506,13 @@ collide with the real one later.
 
 A few elements are legitimately unused at baseline stage because the
 thing that would consume them doesn't exist yet — don't manufacture fake
-wiring to silence these; document them as expected in the report instead:
+wiring to silence these; document them as expected in the report instead.
+Note: `Menu.ActiveItem`/`ActiveSubItem` used to be listed here, but the
+right fix turned out to be not scaffolding them at all until real menu
+items exist (see section 7) — an unfixable-at-this-stage warning is
+better avoided than merely documented, whenever avoiding it is actually
+possible:
 
-- **`Menu.ActiveItem` / `ActiveSubItem`** — these require real navigation
-  items, which don't exist because `MainFlow` is intentionally empty at
-  this stage (see Key Patterns). They can be wired once
-  `dbresults-odc-scaffold-entity` or a spec/design build adds real menu
-  items.
 - **`Login`'s external-provider group** (`ExternalIdentityProviders`,
   `ShowExternalProvider`, `IsBuiltInExecuting`, `ExecutingIndex`) — only
   becomes live if the tenant actually has an external identity provider
@@ -479,9 +534,9 @@ ever re-checking, and dozens survived all the way to publish.
      isn't (the common case per the mandatory wiring instruction above).
      Wire it in this same batch.
    - **Expected-at-baseline** — matches one of the documented exceptions
-     above (`Menu.ActiveItem`/`ActiveSubItem`, external-provider group
-     with no external IdP configured), or another case you confirm with
-     the user follows the same "the consumer doesn't exist yet" logic.
+     above (external-provider group with no external IdP configured), or
+     another case you confirm with the user follows the same "the
+     consumer doesn't exist yet" logic.
    - **Remove** — dead scaffolding that serves no purpose for this app;
      confirm with the user before deleting anything from the documented
      spec (sections 1–13 above) rather than silently trimming it.
@@ -615,8 +670,17 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `eSpace.IsUserProvider` is `true` — no `ImplicitSelfUserProvider`
       warning
 - [ ] Referenced `OutSystemsUI` version supports the chosen `IconLibrary`
-      (`Phosphor2.0` needs ≥ 2.28.0) — checked in pre-flight, re-confirm
-      here
+      (`Phosphor2.0` needs ≥ 2.28.0) — checked via the reference's actual
+      version/revision fields in pre-flight (not the enum-acceptance
+      proxy), and re-confirmed as an actual absence of the "Icon library
+      compatibility" warning in `GetValidationMessages` after Batch 1
+- [ ] Every layout block parameter (`ExtendedClass`,
+      `EnableAccessibilityFeatures`, `HasFixedHeader`, `MenuBehavior`) is
+      bound into a real widget property on its own block, per section 6 —
+      confirm after Batch 2, don't defer
+- [ ] `Menu` block has no `ActiveItem`/`ActiveSubItem` parameters at
+      baseline (they're deferred until real menu items exist — see
+      section 7)
 - [ ] After Batch 8 (Wiring Closure & Validation Sweep): 0 "Unused
       Action"/"Unused Element"/"Unused Local Variable"/"Unused Input
       Parameter"/"Unused Aggregate" warnings remain, other than ones
