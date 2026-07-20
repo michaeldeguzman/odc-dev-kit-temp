@@ -6,6 +6,8 @@
 @rules/database.md
 @rules/testing.md
 @rules/organization.md
+@rules/screens.md
+@rules/descriptions.md
 
 ## Build History
 
@@ -76,6 +78,21 @@ New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline
 **Note:** unlike TestNewWebApp2, the `(System)`/`OutSystemsUI` reference hash issue did NOT cause a build failure this time — the publish succeeded (as a no-op) without hitting `OS-BEW-CODE-40036`. Worth revisiting whether the hash check is a reliable predictor of that failure mode, or whether it only bites under specific additional conditions (e.g. the `User` entity schema drift also seen in TestNewWebApp2).
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp3
+
+### TestNewWebApp4 (`af2af872-e4ee-400d-be87-10c2a95e1e89`) — 2026-07-20
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (8-batch structure). Brand color `#1E88E5`, created `TestNewWebApp4` role (no auto-generated role from `app_create` on this run — 0 roles returned, role created in Batch 1).
+
+| Build | Notes |
+|---|---|
+| Batches 1-8 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → Authentication actions → email templates + RedirectToURL → OnException → validation sweep) | 0 errors every batch; final sweep 0 errors, 1 known false positive (UserProfile OnInitialize aggregate access); Batch 8 proactively removed `TestNewWebApp4` role from `RedirectToURL` (platform default, inconsistent with AnonymousAccess=True) |
+| `app_create` returned 0 roles | Unlike prior runs, no auto-generated role — created `TestNewWebApp4` role manually in Batch 1. `CheckTestNewWebApp4Role` name-collided with role's own generated boolean function; platform auto-renamed to `CheckTestNewWebApp4Role2` |
+| No `PhotoUrl` on User entity | This tenant's `User` entity has: `Id, Name, Username, IsActive, Email, Phone, ExternalId` — no `PhotoUrl`. UserProfile OldPhotoURL set to `""` always; `Client.UserPhotoURL` never populated from User entity |
+| `SetIconLibraryClass` unavailable | Not exposed as public element on this tenant — OnInitialize stubs remain as comment nodes in layout blocks; needs manual wiring in ODC Studio |
+| (System) / OutSystemsUI reference hashes all-zero | Same sandbox limitation as TestNewWebApp3 — flagged but did not cause build failure |
+| Publish | `publish_start` reported `no_changes_detected: true` — Mentor auto-published during batches. Verified via `env_app`: revision 2, deployed 2026-07-20T10:03:37Z |
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp4
 
 ---
 
