@@ -251,6 +251,34 @@ Wire all four bindings while building each block in Batch 2 — this
 requires zero business screens or menu items to exist first, unlike
 `Menu.ActiveItem`/`ActiveSubItem` below, so there's no reason to defer it.
 
+**Separately — and distinct from the block-definition wiring above —
+every screen that places one of these layout blocks must explicitly set
+ALL of that block's input parameter arguments on the instance, even
+though none are marked `Mandatory`.** A live run found that leaving a
+`LayoutTopMenu` argument completely blank on a screen (no expression at
+all — not even `False`/`""`) raises a validation error at publish time:
+the platform treats a merely-optional block parameter as if it were
+required the moment a screen actually instantiates the block, regardless
+of the block's own declared default value. This is not limited to this
+baseline's own screens — it applies to **any** screen that later places
+`LayoutTopMenu`/`LayoutSideMenu`/`LayoutBlank` as its layout, including
+business screens added afterward by `dbresults-odc-scaffold-entity` or a
+spec/design build. Required values for every `LayoutTopMenu` instance:
+
+| Parameter | Value to set on every screen instance |
+|---|---|
+| `HasFixedHeader` | `True` |
+| `EnableAccessibilityFeatures` | `False` |
+| `ExtendedClass` | `""` |
+
+The same rule applies to `LayoutBlank`'s `EnableAccessibilityFeatures`
+(`False`) / `ExtendedClass` (`""`), and to `LayoutSideMenu`'s
+`HasFixedHeader` (`True`) / `EnableAccessibilityFeatures` (`False`) /
+`ExtendedClass` (`""`) / `MenuBehavior` (an explicit value — `""` if the
+tenant has no specific side-menu behavior configured). Never leave a
+layout-block argument blank on a screen just because the parameter isn't
+`Mandatory` — set it explicitly, every time, on every screen instance.
+
 ### 7. Common Blocks (in Common flow)
 
 - **`ApplicationTitle`** — displays app logo + app name (via
@@ -281,6 +309,11 @@ requires zero business screens or menu items to exist first, unlike
 ### 8. Screens (in Common flow)
 
 All screens require the `{App}` role except where noted `AnonymousAccess = true`.
+**Every screen below must explicitly set all of its layout block's input
+parameters** (see the call-site rule under section 6) — don't leave
+`HasFixedHeader`/`EnableAccessibilityFeatures`/`ExtendedClass`/
+`MenuBehavior` blank on any screen's layout instance just because the
+screen spec below doesn't repeat the values inline.
 
 - **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank`. Local
   vars: `UserEmail`, `Password`, `IsPasswordVisible`,
@@ -380,7 +413,11 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
   client action.
 - **`InvalidPermissions`** — `AnonymousAccess = true`, layout
   `LayoutBlank`. Shown when a user lacks the required role.
-- **`UserProfile`** — requires login, layout `LayoutTopMenu`. Screen
+- **`UserProfile`** — requires login, layout `LayoutTopMenu` with
+  `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`,
+  `ExtendedClass = ""` explicitly set on the instance (see section 6 —
+  this is the screen a live run's `LayoutTopMenu` publish-time error was
+  actually found on). Screen
   aggregate `GetUserDetails` (queries `User` filtered by `GetUserId()`).
   Local vars: `OldName`, `OldEmail`, `OldPhotoURL`, `IsExternal`,
   `VerificationCode`, `ShowVerificationCode`, `ShowGetCodeButton`,
@@ -531,6 +568,20 @@ it re-explore the API blind.
   fix landed by checking the entity's attribute list actually changed
   (schema drift, if any, will show up here) — not just that the call
   didn't throw.
+- **A non-`Mandatory` block input parameter still errors at publish time
+  if its argument is left completely blank on a screen instance.** This
+  was confirmed live on `LayoutTopMenu`: `HasFixedHeader`,
+  `EnableAccessibilityFeatures`, and `ExtendedClass` are all declared
+  `Mandatory = False` with defaults, yet a screen that places
+  `LayoutTopMenu` and leaves any one of the three arguments as no
+  expression at all (not `False`, not `""` — genuinely blank) fails
+  validation. `Mandatory = False` only means the platform won't force a
+  value when editing the block's own definition; it does NOT mean a
+  screen can skip supplying an argument when placing an instance of the
+  block. Always set every layout-block parameter argument explicitly on
+  every screen instance (see section 6 for the exact required values) —
+  never rely on the block's own default silently applying at the call
+  site.
 
 ## Mentor Prompt Strategy
 
@@ -559,7 +610,10 @@ moving to the next:
    TODO-deferring only the two actual Batch-5 calls (`DoLogin`,
    `DoLogout`). Don't ship the thin version (validate → call → redirect)
    and don't let `IsBuiltInExecuting`/`ExecutingIndex`/`ProviderIndex`
-   slip into the "expected-unused" bucket.
+   slip into the "expected-unused" bucket. Every one of these 5 screens
+   uses `LayoutBlank` — explicitly set `EnableAccessibilityFeatures = False`
+   and `ExtendedClass = ""` on each screen's layout instance (section 6);
+   don't leave either blank.
 4. **UserProfile screen, on its own.** Disproportionately complex relative
    to the other five screens combined (13 local vars, 10 screen actions,
    a screen aggregate, a verification-code + countdown-timer flow) — a
@@ -568,6 +622,10 @@ moving to the next:
    `SaveChangesOnClick`/`SendVerificationCode` never bound to their save
    button/get-code link). Giving it a dedicated batch and dedicated
    validation pass catches that before it compounds into later batches.
+   This screen's layout is `LayoutTopMenu` — explicitly set
+   `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, and
+   `ExtendedClass = ""` on the instance; a blank argument here is a
+   confirmed publish-time error (section 6), not just a style nit.
 5. **Server actions + client actions** (Authentication folder), including
    `Check{App}Role` — wire ALL previously-stubbed screen logic from
    batches 3 and 4, including UserProfile's.
@@ -870,6 +928,16 @@ After each Mentor batch, confirm via the matching context tool:
       `EnableAccessibilityFeatures`, `HasFixedHeader`, `MenuBehavior`) is
       bound into a real widget property on its own block, per section 6 —
       confirm after Batch 2, don't defer
+- [ ] Separately from the above: every screen's layout-block INSTANCE
+      (not the block's own definition) has every one of that block's
+      parameter arguments explicitly set — `LayoutBlank` screens:
+      `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`;
+      `LayoutTopMenu` screens (`UserProfile`): `HasFixedHeader = True`,
+      `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`. None
+      of these are `Mandatory`, but a blank argument on the screen
+      instance is a confirmed publish-time error regardless — check
+      every screen created in Batches 3-4, don't assume the block's own
+      default silently applies
 - [ ] `Menu` block has no `ActiveItem`/`ActiveSubItem` parameters at
       baseline (they're deferred until real menu items exist — see
       section 7)
