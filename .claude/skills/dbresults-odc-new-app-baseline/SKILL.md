@@ -285,35 +285,87 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
 - **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank`. Local
   vars: `UserEmail`, `Password`, `IsPasswordVisible`,
   `ShowBuiltInProvider`, `ShowExternalProvider`, `IsBuiltInExecuting`,
-  `ExecutingIndex`, `ExternalIdentityProviders`. Screen actions:
+  `ExecutingIndex` (Integer, default `-1` — not `0`, since `0` is a valid
+  list index), `ExternalIdentityProviders`. Screen actions:
   `OnInitialize` (redirect if already logged in; load provider status +
-  external providers list), `LoginOnClick` (validate form, call
-  `DoLogin`, check `{App}` role, redirect or show error),
-  `LoginProviderOnClick(ProviderIndex, ProviderKey)` (call
-  `GetExternalLoginURL`, redirect), `OnTogglePasswordVisibility` (toggle
-  `IsPasswordVisible`, call `ShowPassword`). UI: email input, password
-  input with show/hide toggle, "Forgot password?" link, login button
-  (`ButtonLoading`), separator, external provider buttons list.
-  **Mandatory wiring for `IsBuiltInExecuting`/`ExecutingIndex`/
-  `ProviderIndex`:** a prior run left all three declared-but-unused,
-  producing 3 "Unused Element" warnings that survived all the way to the
-  final validation sweep and publish. Unlike the `Menu.ActiveItem` case,
-  these three do NOT need to wait for a business screen or a configured
-  external identity provider — the provider-list widget and its
-  list-item `OnClick` event exist at design time even when the list is
-  empty at runtime, so wire them for real in this batch, not later:
-    - `LoginOnClick` — set `IsBuiltInExecuting = True` before calling
-      `DoLogin` (or its Batch-5 TODO stub); bind the login button's
-      `IsLoading`/`ButtonLoading` state to `IsBuiltInExecuting`.
-    - `LoginProviderOnClick(ProviderIndex, ProviderKey)` — as its first
-      assignment, set `ExecutingIndex = ProviderIndex`; bind each
-      external-provider list item's own loading-state expression to
-      `ExecutingIndex = <that list's own item-index expression>` so only
-      the clicked button shows as executing.
-    - Bind `ProviderIndex` itself from the external-provider list item's
-      own index expression when wiring that list item's `OnClick` event
-      — this is what makes it a real, consumed input parameter instead
-      of an unused one.
+  external providers list), `LoginOnClick`, `LoginProviderOnClick`,
+  `OnTogglePasswordVisibility` (toggle `IsPasswordVisible`, call
+  `ShowPassword`). UI: email input, password input with show/hide
+  toggle, "Forgot password?" link, login button (`ButtonLoading`),
+  separator, external provider buttons list.
+
+  **`LoginOnClick`** — the full flow (a prior run implemented only a
+  thin version of this — validate, call `DoLogin`, redirect/error — and
+  skipped the executing-state management and the role check entirely,
+  which is what left `IsBuiltInExecuting` looking unused):
+  1. Set `IsBuiltInExecuting = True` (disables inputs, shows the login
+     button's loading state).
+  2. Validate the form (e.g. `LoginForm.Valid`). If invalid: set
+     `IsBuiltInExecuting = False` and end — do not attempt a login. If
+     valid: clear any previous feedback message and proceed.
+  3. Call `DoLogin`, passing `UserEmail` as username and `Password`.
+  4. Call a role-membership check for the `{App}` role — either the
+     role's own generated boolean check function (custom Roles are
+     directly callable as expressions, e.g. `{App}()`) or a thin wrapper
+     client action around it (a live run named this `CheckNewAppRole`,
+     but the name should match the app's actual role per the `{App}`
+     convention — confirm the real generated function/action name with
+     Mentor rather than assuming this exact name).
+  5. Branch on the result:
+     - `DoLogin` failed → clear `Password`, set
+       `IsBuiltInExecuting = False`, show `DoLogin`'s own error message.
+     - `DoLogin` succeeded but the role check fails → clear `Password`,
+       set `IsBuiltInExecuting = False`, show a "No permissions." error,
+       then call `DoLogout` — an authenticated-but-unauthorized session
+       must not be left standing.
+     - `DoLogin` succeeded and the role check passes → redirect to
+       `Client.LastURL` (or the app root if empty), with a fade
+       transition.
+  6. Exception handler on the whole action — clear `Password`, set
+     `IsBuiltInExecuting = False`, show the exception message as an
+     error. (This is in addition to, not instead of, the branch-level
+     error handling in step 5.)
+
+  **`LoginProviderOnClick(ProviderIndex: Integer, ProviderKey: Text)`**:
+  1. Assign `ExecutingIndex = ProviderIndex` — this one assignment is
+     what makes `ProviderIndex` a real, consumed input parameter. **A
+     prior run's validation still flagged `ProviderIndex` as "Unused
+     Element" even after this exact assignment was wired** — this is a
+     known false positive in the scaffolding tool's unused-parameter
+     check, not a sign the wiring is actually missing. Confirm the
+     assignment exists in the action's logic (don't just trust the
+     absence of the warning, and don't waste a batch trying to silence
+     a false positive that can't be silenced).
+  2. Call system action `GetExternalLoginURL`, passing `ProviderKey`.
+  3. Redirect to the returned URL.
+  4. Exception handler — reset both `IsBuiltInExecuting = False` and
+     `ExecutingIndex = -1`, show the exception message as an error.
+
+  **Cross-wiring `IsBuiltInExecuting` and `ExecutingIndex` — this is the
+  actual reason both variables exist, and it's why they read as unused
+  if only bound one-directionally:** they gate the loading/disabled
+  state of *every* login button on the screen together, not just their
+  own button:
+  - The built-in login button's `Enabled`/`ButtonLoading` expression
+    should reference `Not(IsBuiltInExecuting) And ExecutingIndex = -1`
+    (or equivalent) — it disables while EITHER the built-in login OR any
+    external provider login is executing.
+  - Each external-provider list item's `Enabled` expression should
+    likewise reference `Not(IsBuiltInExecuting) And ExecutingIndex = -1`,
+    and its own loading-spinner expression should be
+    `ExecutingIndex = <that list's own item-index expression>` so only
+    the clicked button shows as loading, not all of them.
+  Wiring only the "obvious" half (e.g. just the clicked button's own
+  spinner) leaves the other bindings — and often the variables
+  themselves — looking unused to the validator.
+
+  **Batch sequencing note:** `DoLogin` and `DoLogout` are Batch-5
+  actions, so in Batch 3 those two specific calls are the ones that get
+  the standard TODO-comment deferral (see "Avoiding stub-naming
+  collisions across batches"). The `{App}` role-membership check is
+  NOT a Batch-5 dependency — the role itself already exists from Batch 1
+  — so wire that branch for real in Batch 3; don't defer it just because
+  it sits in the same action as two calls that must be deferred.
 - **`RecoverPasswordRequest`** — `AnonymousAccess = true`, layout
   `LayoutBlank`. Local vars: `IsExecuting`, `Email`. Screen action
   `ResetPasswordOnClick` — validate form, call `SendResetPasswordEmail`
@@ -367,6 +419,18 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
   calls the server action of the same name with `GetAppName()`.
 - **`UpdateUser(UserUpdateInfo: UserUpdateInfo)`** →
   `UpdateUserResult: UpdateUserResult` — calls the server action.
+- **`Check{App}Role()`** → `HasRole: Boolean` — thin wrapper around the
+  `{App}` role's own generated boolean check function (custom Roles are
+  directly callable as expressions, e.g. `{App}()` returns whether the
+  current user holds it). Used by `Login.LoginOnClick` (section 8) right
+  after a successful `DoLogin` to decide between redirecting home and
+  showing "No permissions." + `DoLogout`. This does not depend on any
+  other Batch-5 action and has no `(System)`/external dependency, so it
+  can be created and wired in this batch even though the rest of
+  `LoginOnClick`'s role-check branch was already wired for real back in
+  Batch 3 (the role itself exists from Batch 1) — just confirm this
+  action exists by the time Batch 5 wires `DoLogin`/`DoLogout` into the
+  same screen action.
 
 ### 11. Email Templates (in Emails flow)
 
@@ -487,10 +551,15 @@ moving to the next:
    `EmailTheme` right away in this batch, not deferred to Batch 6.
 2. **Layout blocks + common blocks** — the shared UI chrome.
 3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
-   RecoverPasswordReset → ChangePassword → InvalidPermissions). Include
-   the mandatory `IsBuiltInExecuting`/`ExecutingIndex`/`ProviderIndex`
-   wiring from section 8's `Login` spec in this same batch — don't defer
-   it, and don't let it slip into the "expected-unused" bucket.
+   RecoverPasswordReset → ChangePassword → InvalidPermissions). Build
+   `LoginOnClick`/`LoginProviderOnClick` to the full flow in section 8 —
+   executing-state management, form validation, the `{App}` role check
+   (wire this for real; it's not a Batch-5 dependency), and the
+   cross-wired `Enabled`/loading-state bindings on both button types —
+   TODO-deferring only the two actual Batch-5 calls (`DoLogin`,
+   `DoLogout`). Don't ship the thin version (validate → call → redirect)
+   and don't let `IsBuiltInExecuting`/`ExecutingIndex`/`ProviderIndex`
+   slip into the "expected-unused" bucket.
 4. **UserProfile screen, on its own.** Disproportionately complex relative
    to the other five screens combined (13 local vars, 10 screen actions,
    a screen aggregate, a verification-code + countdown-timer flow) — a
@@ -499,9 +568,9 @@ moving to the next:
    `SaveChangesOnClick`/`SendVerificationCode` never bound to their save
    button/get-code link). Giving it a dedicated batch and dedicated
    validation pass catches that before it compounds into later batches.
-5. **Server actions + client actions** (Authentication folder) — wire
-   ALL previously-stubbed screen logic from batches 3 and 4, including
-   UserProfile's.
+5. **Server actions + client actions** (Authentication folder), including
+   `Check{App}Role` — wire ALL previously-stubbed screen logic from
+   batches 3 and 4, including UserProfile's.
 6. **Email templates + external site**.
 7. **OnException handler** (Common flow) — all four branches (Security,
    Database, Communication, All Exceptions), then set it as the app's
@@ -589,6 +658,17 @@ possible:
   wireable at design time regardless of external-IdP configuration; see
   the mandatory wiring note under `Login` in section 8 and fix them in
   Batch 3, don't defer them.
+- **`LoginProviderOnClick`'s `ProviderIndex`** — this one is different in
+  kind from the rest of this list: it's a **known validator false
+  positive**, not a genuinely-deferred consumer. Even with the correct
+  `ExecutingIndex = ProviderIndex` assignment wired in as the action's
+  first step, `GetValidationMessages` can still report it as "Unused
+  Element". Don't spend a batch trying to make this specific warning
+  disappear — confirm the assignment exists in the action's logic (that
+  is the actual acceptance criterion), and if the warning is still
+  present after that, classify it in Batch 8 as a confirmed false
+  positive rather than a fix-now item or a business-logic-not-ready
+  item.
 
 ## Wiring Closure & Validation Sweep (Batch 8)
 
@@ -606,10 +686,15 @@ ever re-checking, and dozens survived all the way to publish.
    - **Expected-at-baseline** — matches one of the documented exceptions
      above (`ExternalIdentityProviders`/`ShowExternalProvider` with no
      external IdP configured — note this pair is already consumed and
-     shouldn't actually be warning; `IsBuiltInExecuting`/`ExecutingIndex`/
-     `ProviderIndex` do NOT belong in this bucket, see section 8), or
-     another case you confirm with the user follows the same "the
-     consumer doesn't exist yet" logic.
+     shouldn't actually be warning), or another case you confirm with the
+     user follows the same "the consumer doesn't exist yet" logic.
+     `IsBuiltInExecuting`/`ExecutingIndex` do NOT belong in this bucket —
+     see section 8's mandatory wiring.
+   - **Known false positive** — `LoginProviderOnClick`'s `ProviderIndex`
+     specifically: confirm the `ExecutingIndex = ProviderIndex` assignment
+     genuinely exists, and if the warning persists anyway, classify it
+     here rather than as "Fix now" (there's nothing left to fix) or
+     "Expected-at-baseline" (it's not waiting on anything to exist).
    - **Remove** — dead scaffolding that serves no purpose for this app;
      confirm with the user before deleting anything from the documented
      spec (sections 1–13 above) rather than silently trimming it.
@@ -727,8 +812,8 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `context_roles`: the confirmed application role exists
 - [ ] `context_screens`: 6 screens exist with correct
       `AnonymousAccess` flags and layouts
-- [ ] `context_actions`: 3 server actions + 5 client actions exist in an
-      `Authentication` folder
+- [ ] `context_actions`: 3 server actions + 6 client actions (including
+      `Check{App}Role`) exist in an `Authentication` folder
 - [ ] Layout blocks and common blocks aren't directly enumerable via
       `context_actions`/`context_screens` in all tenants — if they don't
       surface there, confirm via Mentor's own OML inspection or Service
@@ -753,10 +838,27 @@ After each Mentor batch, confirm via the matching context tool:
       `GetValidationMessages` after Batch 1; if the version is below
       2.28.0, a tenant-level OutSystemsUI upgrade was requested before
       publish
-- [ ] `Login.IsBuiltInExecuting`, `Login.ExecutingIndex`, and
-      `Login.LoginProviderOnClick.ProviderIndex` are all wired into real
-      loading-state bindings (per section 8) — none of these three should
-      appear in the final "Unused Element" list; only
+- [ ] `Login.LoginOnClick` implements the full flow from section 8: sets
+      `IsBuiltInExecuting`, validates the form, calls `DoLogin`, calls
+      `Check{App}Role` on success, branches to redirect /
+      "No permissions." + `DoLogout` / `DoLogin`'s own error message,
+      and has an exception handler that resets `IsBuiltInExecuting` and
+      clears `Password`
+- [ ] `Login.LoginProviderOnClick` assigns `ExecutingIndex = ProviderIndex`
+      as its first step, calls `GetExternalLoginURL`, redirects, and its
+      exception handler resets both `IsBuiltInExecuting = False` and
+      `ExecutingIndex = -1`
+- [ ] Both the built-in login button and every external-provider list
+      item are cross-wired to `Not(IsBuiltInExecuting) And ExecutingIndex = -1`
+      for their `Enabled` state (not just their own individual loading
+      spinner) — this cross-wiring, not just each button's own binding,
+      is what makes `IsBuiltInExecuting`/`ExecutingIndex` genuinely used
+- [ ] `Login.ExecutingIndex` defaults to `-1`, not `0`
+- [ ] `ProviderIndex` on `LoginProviderOnClick` is genuinely assigned to
+      `ExecutingIndex` — a known false positive can still flag it as
+      "Unused Element" even when correctly wired; confirm the assignment
+      exists in the action's logic rather than trusting the absence (or
+      presence) of that specific warning either way. Only
       `ExternalIdentityProviders`/`ShowExternalProvider` are the
       legitimately-inert (but already-consumed, non-warning) pair
 - [ ] `EmailTheme` does NOT extend `OutSystemsUI` (standalone/root theme
