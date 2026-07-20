@@ -61,6 +61,22 @@ Test run of the updated `dbresults-odc-new-app-baseline` skill (8-batch structur
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp2
 
+### TestNewWebApp3 (`08192363-3cdf-4322-adb1-ed1ef20a293b`) — 2026-07-20
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (8-batch structure). Brand color `#1E88E5`, reused the auto-generated `TestNewWebApp3` role.
+
+| Build | Notes |
+|---|---|
+| Batches 1-8 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → Authentication actions → email templates + RedirectToURL → OnException → validation sweep) | 0 errors every batch; final sweep left only 4 expected warnings (external-provider group inert with no IdP configured, `Emails` theme-size suggestion) |
+| Batch 3 self-correction | Mentor added a partial (`AllExceptions`-only) `OnException` handler mid-batch to silence a validation warning; Batch 7 found and extended it in place to the full 4-branch handler rather than creating a duplicate |
+| Batch 6 TODO closure | All Batch-2/3/4/5-deferred TODO comment nodes closed and confirmed via exhaustive eSpace-wide search; only 3 environment-limited `SetIconLibraryClass` TODOs remain (OutSystemsUI action not accessible as a reference in this environment — needs manual wiring in ODC Studio) |
+| Pre-publish structural check | No duplicate folders (2 distinct `Authentication` folders, one per ServerActions/ClientActions scope, correct); no orphaned action-folder assignments; `(System)` and `OutSystemsUI` reference hashes remained all-zero even after both documented fix attempts (`RefreshDependency`, `add_references_to_elements`) — confirmed as a Model-API-sandbox limitation (cannot reach the tenant's live signature service), not data corruption; flagged as a known `OS-BEW-CODE-40036`-pattern risk |
+| Publish | `publish_start` reported `no_changes_detected: true` — Mentor had already auto-published during the batches. Verified via `env_app`: deployed at revision 2, live URL, deployment timestamp matching session time. `context_themes`/`context_screens`/`context_actions` returned 0 results even after retries — Context Service indexing lag on this brand-new app, not a deployment failure |
+
+**Note:** unlike TestNewWebApp2, the `(System)`/`OutSystemsUI` reference hash issue did NOT cause a build failure this time — the publish succeeded (as a no-op) without hitting `OS-BEW-CODE-40036`. Worth revisiting whether the hash check is a reliable predictor of that failure mode, or whether it only bites under specific additional conditions (e.g. the `User` entity schema drift also seen in TestNewWebApp2).
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp3
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_

@@ -76,6 +76,18 @@ that already exist.
    `GetValidationMessages` for "Icon library compatibility" before moving
    on — don't assume the pre-flight check was sufficient without
    confirming the warning is actually gone.
+   **Confirmed live-run finding:** the Model API sandbox cannot reliably
+   read the OutSystemsUI reference's true semantic version — a run
+   against a real tenant saw a non-empty `Revision` but empty
+   `Version`/`Hash` fields, and the "Icon library compatibility" warning
+   survived all 8 batches even though `Phosphor2.0` was accepted without
+   error. The reliable check lives outside the Model API: open ODC
+   Portal (or ODC Studio's dependency panel) and read the OutSystemsUI
+   version shown there directly. If it's below 2.28.0, request a
+   tenant-level OutSystemsUI dependency upgrade before publishing this
+   app — don't just carry the warning forward hoping it resolves itself
+   at publish time, and don't rely on the Model API's enum-acceptance
+   check as if it were a version check.
 7. **Check the `(System)` reference's health before touching anything.**
    Have Mentor read the reference's `Hash` field. A prior run had this
    sitting at an all-zero hash (`00000000-0000-0000-0000-000000000000`)
@@ -127,6 +139,19 @@ that already exist.
   theme's stylesheet (table/list-item widget styles for email-safe
   layouts) — don't leave it as a bare theme with no styles, and don't
   hand-author the CSS from scratch each run.
+  **Do NOT extend `OutSystemsUI`** — unlike `{App}`, `EmailTheme` should
+  be a standalone/root theme. A prior run created `EmailTheme` as an
+  `OutSystemsUI`-derived theme (matching the pattern used for `{App}`),
+  which inherits the entire framework CSS bundle and triggers a
+  "UI Flow 'Emails' is using a theme that is larger than 14KB" warning
+  regardless of how minimal the email-specific CSS is — extending
+  `OutSystemsUI` is the actual root cause, not the custom CSS size. Also
+  explicitly set the `Emails` **flow's own** `Theme` property to
+  `EmailTheme` (a flow-level setting, distinct from each individual email
+  template's own `Theme` property in section 11) — a prior run set each
+  template's `Theme` correctly but left the flow-level theme on the
+  default, and the size warning's `ownerPath` points at the flow
+  (`/Emails`, `ownerType: WebFlow`), not at either template.
 
 ### 3. Role & App Identity
 
@@ -269,6 +294,26 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
   `IsPasswordVisible`, call `ShowPassword`). UI: email input, password
   input with show/hide toggle, "Forgot password?" link, login button
   (`ButtonLoading`), separator, external provider buttons list.
+  **Mandatory wiring for `IsBuiltInExecuting`/`ExecutingIndex`/
+  `ProviderIndex`:** a prior run left all three declared-but-unused,
+  producing 3 "Unused Element" warnings that survived all the way to the
+  final validation sweep and publish. Unlike the `Menu.ActiveItem` case,
+  these three do NOT need to wait for a business screen or a configured
+  external identity provider — the provider-list widget and its
+  list-item `OnClick` event exist at design time even when the list is
+  empty at runtime, so wire them for real in this batch, not later:
+    - `LoginOnClick` — set `IsBuiltInExecuting = True` before calling
+      `DoLogin` (or its Batch-5 TODO stub); bind the login button's
+      `IsLoading`/`ButtonLoading` state to `IsBuiltInExecuting`.
+    - `LoginProviderOnClick(ProviderIndex, ProviderKey)` — as its first
+      assignment, set `ExecutingIndex = ProviderIndex`; bind each
+      external-provider list item's own loading-state expression to
+      `ExecutingIndex = <that list's own item-index expression>` so only
+      the clicked button shows as executing.
+    - Bind `ProviderIndex` itself from the external-provider list item's
+      own index expression when wiring that list item's `OnClick` event
+      — this is what makes it a real, consumed input parameter instead
+      of an unused one.
 - **`RecoverPasswordRequest`** — `AnonymousAccess = true`, layout
   `LayoutBlank`. Local vars: `IsExecuting`, `Email`. Screen action
   `ResetPasswordOnClick` — validate form, call `SendResetPasswordEmail`
@@ -331,6 +376,12 @@ All screens require the `{App}` role except where noted `AnonymousAccess = true`
 - **`ChangeEmail`** — input params `CustomerEmail`, `VerificationCode`,
   `ApplicationName`, `CustomerName`. Theme: `EmailTheme`. Content: email
   change verification instructions.
+
+Setting each template's own `Theme` to `EmailTheme` is necessary but not
+sufficient — also confirm the `Emails` flow's own `Theme` property is
+`EmailTheme` (see section 2's `EmailTheme` note); the "theme larger than
+14KB" validation warning is keyed to the flow-level theme, not the
+per-template one.
 
 ### 12. External Sites (in Common flow)
 
@@ -430,10 +481,16 @@ moving to the next:
    empty `MainFlow` (no screens/blocks/handler needed — just the flow
    itself). When creating `EmailTheme`, paste the contents of
    `assets/EmailTheme.css` in this skill's folder into its stylesheet
-   verbatim — don't summarize or re-derive it.
+   verbatim — don't summarize or re-derive it. Create `EmailTheme` as a
+   standalone theme (do NOT extend `OutSystemsUI` the way `{App}` does —
+   see section 2), and set the `Emails` flow's own `Theme` property to
+   `EmailTheme` right away in this batch, not deferred to Batch 6.
 2. **Layout blocks + common blocks** — the shared UI chrome.
 3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
-   RecoverPasswordReset → ChangePassword → InvalidPermissions).
+   RecoverPasswordReset → ChangePassword → InvalidPermissions). Include
+   the mandatory `IsBuiltInExecuting`/`ExecutingIndex`/`ProviderIndex`
+   wiring from section 8's `Login` spec in this same batch — don't defer
+   it, and don't let it slip into the "expected-unused" bucket.
 4. **UserProfile screen, on its own.** Disproportionately complex relative
    to the other five screens combined (13 local vars, 10 screen actions,
    a screen aggregate, a verification-code + countdown-timer flow) — a
@@ -519,12 +576,19 @@ items exist (see section 7) — an unfixable-at-this-stage warning is
 better avoided than merely documented, whenever avoiding it is actually
 possible:
 
-- **`Login`'s external-provider group** (`ExternalIdentityProviders`,
-  `ShowExternalProvider`, `IsBuiltInExecuting`, `ExecutingIndex`) — only
-  becomes live if the tenant actually has an external identity provider
-  configured. If it doesn't, confirm with the user whether to leave this
-  scaffolded-but-inert (documented as expected) or drop it from the
-  screen entirely.
+- **`Login`'s `ExternalIdentityProviders`/`ShowExternalProvider`** — the
+  underlying data and visibility toggle only becomes visually meaningful
+  once the tenant has an external identity provider configured, but both
+  are already consumed (by `OnInitialize`'s population logic and the
+  container's `If(ShowExternalProvider, ...)` visibility expression), so
+  they don't produce "Unused Element" warnings and need no special
+  handling either way.
+  **Do NOT** also list `IsBuiltInExecuting`/`ExecutingIndex`/
+  `ProviderIndex` here — a prior run treated all five as one inert group
+  and left three of them permanently unwired as a result. Those three ARE
+  wireable at design time regardless of external-IdP configuration; see
+  the mandatory wiring note under `Login` in section 8 and fix them in
+  Batch 3, don't defer them.
 
 ## Wiring Closure & Validation Sweep (Batch 8)
 
@@ -540,7 +604,10 @@ ever re-checking, and dozens survived all the way to publish.
      isn't (the common case per the mandatory wiring instruction above).
      Wire it in this same batch.
    - **Expected-at-baseline** — matches one of the documented exceptions
-     above (external-provider group with no external IdP configured), or
+     above (`ExternalIdentityProviders`/`ShowExternalProvider` with no
+     external IdP configured — note this pair is already consumed and
+     shouldn't actually be warning; `IsBuiltInExecuting`/`ExecutingIndex`/
+     `ProviderIndex` do NOT belong in this bucket, see section 8), or
      another case you confirm with the user follows the same "the
      consumer doesn't exist yet" logic.
    - **Remove** — dead scaffolding that serves no purpose for this app;
@@ -679,10 +746,24 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `eSpace.IsUserProvider` is `true` — no `ImplicitSelfUserProvider`
       warning
 - [ ] Referenced `OutSystemsUI` version supports the chosen `IconLibrary`
-      (`Phosphor2.0` needs ≥ 2.28.0) — checked via the reference's actual
-      version/revision fields in pre-flight (not the enum-acceptance
-      proxy), and re-confirmed as an actual absence of the "Icon library
-      compatibility" warning in `GetValidationMessages` after Batch 1
+      (`Phosphor2.0` needs ≥ 2.28.0) — checked via ODC Portal/Studio's
+      dependency panel directly (not the Model API's enum-acceptance
+      proxy, which cannot prove version compatibility), and re-confirmed
+      as an actual absence of the "Icon library compatibility" warning in
+      `GetValidationMessages` after Batch 1; if the version is below
+      2.28.0, a tenant-level OutSystemsUI upgrade was requested before
+      publish
+- [ ] `Login.IsBuiltInExecuting`, `Login.ExecutingIndex`, and
+      `Login.LoginProviderOnClick.ProviderIndex` are all wired into real
+      loading-state bindings (per section 8) — none of these three should
+      appear in the final "Unused Element" list; only
+      `ExternalIdentityProviders`/`ShowExternalProvider` are the
+      legitimately-inert (but already-consumed, non-warning) pair
+- [ ] `EmailTheme` does NOT extend `OutSystemsUI` (standalone/root theme
+      only), and the `Emails` flow's own `Theme` property (not just each
+      template's) is set to `EmailTheme` — confirm the "UI Flow 'Emails'
+      is using a theme that is larger than 14KB" warning is actually
+      absent, not just that each template's `Theme` field looks correct
 - [ ] Every layout block parameter (`ExtendedClass`,
       `EnableAccessibilityFeatures`, `HasFixedHeader`, `MenuBehavior`) is
       bound into a real widget property on its own block, per section 6 —
