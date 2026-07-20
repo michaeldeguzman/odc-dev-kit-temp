@@ -661,7 +661,7 @@ when not logged in.
 |---|---|---|
 | `OnReady` | After first render | Calls `GetUsernameAndPhoto`. |
 | `GetUsernameAndPhoto` | Called by `OnReady` | If `Client.UserName` is empty and user is logged in, calls system `GetUserProfile` and assigns `Client.UserName` and `Client.UserPhotoURL`. |
-| `ClientLogout` | Logout link click | Calls `DoLogout` → navigates to `DoLogout.RedirectURL` (fade transition). |
+| `ClientLogout` | Logout link click | Calls `DoLogout` → navigates to `RedirectToURL` screen with `URL = DoLogout.RedirectURL` (fade transition). |
 
 **Widget Structure:**
 ```
@@ -703,8 +703,7 @@ screen spec below doesn't repeat the values inline.
   `ShowBuiltInProvider`, `ShowExternalProvider`, `IsBuiltInExecuting`,
   `ExecutingIndex` (Integer, default `-1` — not `0`, since `0` is a valid
   list index), `ExternalIdentityProviders`. Screen actions:
-  `OnInitialize` (redirect if already logged in; load provider status +
-  external providers list), `LoginOnClick`, `LoginProviderOnClick`,
+  `OnInitialize` (1) if already logged in → redirect to app root; (2) assign `IsBuiltInExecuting = False`, `ExecutingIndex = -1` — resets executing state on page enter; (3) call `IsBuiltinIdentityProviderActive` → assign `ShowBuiltInProvider`; (4) call `GetExternalIdentityProviders` → assign `ExternalIdentityProviders`, `ShowExternalProvider`), `LoginOnClick`, `LoginProviderOnClick`,
   `OnTogglePasswordVisibility` (toggle `IsPasswordVisible`, call
   `ShowPassword` with **no WidgetId argument** — Login passes empty/default,
   unlike `ChangePassword`/`RecoverPasswordReset` which pass `Input_NewPassword.Id`
@@ -757,8 +756,8 @@ screen spec below doesn't repeat the values inline.
      assignment exists in the action's logic (don't just trust the
      absence of the warning, and don't waste a batch trying to silence
      a false positive that can't be silenced).
-  2. Call system action `GetExternalLoginURL`, passing `ProviderKey`.
-  3. Redirect to the returned URL.
+  2. Call system action `GetExternalLoginURL`, passing `IdentityProvider = ProviderKey`.
+  3. Navigate to `RedirectToURL` screen with `URL = GetExternalLoginURL.ExternalLoginURL`.
   4. Exception handler — reset both `IsBuiltInExecuting = False` and
      `ExecutingIndex = -1`, show the exception message as an error.
 
@@ -828,7 +827,7 @@ screen spec below doesn't repeat the values inline.
   | `PasswordPolicyCompliant` | `PasswordPolicy` block `Compliant` event | Sets `IsNewPasswordCompliant = IsValid` → calls `SetIsButtonEnabled`. |
   | `OnToggleNewPasswordVisibility` | Eye icon on new password | Toggles `IsPasswordVisible` → calls `ShowPassword(Input_NewPassword.Id)`. |
   | `OnToggleConfirmPasswordVisibility` | Eye icon on confirm password | Toggles `IsConfirmPasswordVisible` → calls `ShowPassword(Input_ConfirmPassword.Id)`. |
-  | `SavePasswordOnClick` | "Save password" button | Validates form + passwords match → calls `FinishResetPassword(Email, NewPassword, VerificationCode)` → on success calls `DoLogin(Email, NewPassword)` → redirects to app root or `Login`. Handles complexity/invalid code errors. |
+  | `SavePasswordOnClick` | "Save password" button | (1) If `RecoverPasswordForm.Valid` false → end. (2) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Passwords doesn't match."` (typo preserved from source), end. (3) `IsExecuting = True`. (4) Call `FinishResetPassword(Email = Email, NewPassword = NewPassword, VerificationCode = VerificationCode)`. (5) On `ComplexityFailed`: `Input_NewPassword.Valid = False`, `ValidationMessage = "The password does not meet the requirements."`, `IsButtonEnabled = False`, `IsExecuting = False`, end. On `InvalidVerificationCode`: `Input_Code.Valid = False`, `ValidationMessage = "The code is invalid."`, `IsExecuting = False`, end. On unknown failure: show `"An unknown error occured. Please try again later."` (typo preserved), `IsExecuting = False`, end. (6) On success: call `DoLogin(Username = Email, Password = NewPassword)`. If `DoLogin.Success` → navigate to `RedirectToURL` with `URL = GetOwnerURLPath()`; else → navigate to `Login`. AllExceptions handler: show `ExceptionMessage`, `IsExecuting = False`. |
 
   UI: logo, "Reset password" heading, email input (disabled), verification
   code input, new password input + `PasswordPolicy` block, confirm password
@@ -1123,7 +1122,7 @@ If: Login.UserLoginResult.Success
           ├── True → Assign: ErrorMessage = "Invalid credentials." → End
           └── False →
                 If: TooManyFailedLoginAttempts
-                  ├── True → Assign: ErrorMessage = "Too many failed login attempts. Please try again in " + RetryAfterSeconds + " seconds." → End
+                  ├── True → Assign: ErrorMessage = "Too many failed login attempts. Please try again in " + Login.UserLoginResult.RetryAfterSeconds + " seconds." → End
                   └── False → Assign: ErrorMessage = "Login operation failed." → End
 ```
 
