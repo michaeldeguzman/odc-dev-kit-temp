@@ -52,6 +52,36 @@ that already exist.
 5. Confirm the app's `kind` is a web app (`CrossDevice`/`WebApplication`) —
    this baseline is web-specific; a `Mobile` app shell needs a different
    (not-yet-covered) baseline.
+6. **Check `OutSystemsUI` reference version compatibility.** The
+   `Phosphor2.0` icon library (step 2 below) requires `OutSystemsUI`
+   version **2.28.0 or later**. Have Mentor inspect the app's current
+   `OutSystemsUI` reference version before Batch 1 runs. If it's older:
+   bump the reference to the latest available version in the tenant
+   first, and only then set `IconLibrary: Phosphor2.0`; if no compatible
+   version is available, fall back to the default icon library instead
+   and flag this to the user rather than setting Phosphor2.0 anyway.
+   Confirmed root cause of a real "Icon library compatibility" warning
+   in a prior run — this step didn't exist and the mismatch shipped
+   silently.
+7. **Check the `(System)` reference's health before touching anything.**
+   Have Mentor read the reference's `Hash` field. A prior run had this
+   sitting at an all-zero hash (`00000000-0000-0000-0000-000000000000`)
+   from the start — invisible to `GetValidationMessages`, but a guaranteed
+   `OS-BEW-CODE-40036` build failure later ("uses entity 'User' that is
+   incompatible with its definition in reference '(System)'"). If the hash
+   is zero or the reference otherwise looks stale, fix it now (see
+   "Refreshing a stale `(System)` reference" under Model API Patterns)
+   before Batch 1 — cheaper to catch here than after 8 batches of work.
+8. **Do not hardcode assumed `User` entity attribute names.** The skill's
+   `UserProfile` spec (section 8) refers to attributes like `Name`,
+   `Email`, `PhotoURL`, `IsActive`. A prior run discovered the tenant's
+   live `User` entity had actually drifted from this shape (`IsActive`,
+   `Phone`, `ExternalId` were gone; `PhotoUrl` — different casing — had
+   been added instead). Before writing any expression that reads a `User`
+   attribute (Batches 3–5), have Mentor query the *live* attribute list
+   from the `(System)` reference and use exactly those names/casing —
+   never assume the spec's attribute names are still accurate for this
+   tenant.
 
 ## Layers to Scaffold
 
@@ -81,11 +111,27 @@ that already exist.
     set to `{BrandColor}`
 - **`EmailTheme`** — separate theme used only by the email templates
 
-### 3. Role
+### 3. Role & App Identity
 
 - **`{App}`** — the single application role. All authenticated screens
   require it. (Reuse the auto-generated role from `app_create` if the
   user agrees it's the right name; otherwise create the confirmed name.)
+- **Set `eSpace.IsUserProvider = true`.** This baseline gives the app its
+  own full Login/ChangePassword/UserProfile flow against the `(System)`
+  `User` entity — it is self-contained, so it should explicitly declare
+  itself a User Provider rather than implicitly self-referencing.
+  `IsUserProvider` is a genuine, directly-settable Model API property on
+  the eSpace (confirmed live: `eSpace.IsUserProvider` reads/writes as a
+  plain boolean) — this is the correct, supported fix for the
+  `ImplicitSelfUserProvider` performance warning ("Apps that are not set
+  as 'Is User Provider' should have a User Provider specified different
+  than (Current eSpace)").
+  **Do not** attempt to resolve this warning by writing hidden/undocumented
+  eSpace metadata keys (e.g. a reflection-discovered `UserProviderESpaceName`
+  key) — a prior session went down exactly that path via trial-and-error
+  reflection against the Model API, produced no real fix, and risked
+  leaving the OML in a bad state. Setting `IsUserProvider = true` directly
+  is the whole fix; nothing else is needed.
 
 ### 4. Client Variables
 
@@ -101,6 +147,17 @@ that already exist.
 |---|---|
 | `Logo` | App logo shown on login screen and header |
 | `User` | Placeholder avatar for users without a photo |
+
+**Use a 1×1 transparent GIF for both placeholders, not a hand-crafted PNG.**
+A prior run generated PNG bytes by hand (IHDR/IDAT chunks with manually
+computed CRC32 checksums); the Model API's code sandbox disallows `for`
+loops and local functions, so a correct CRC32 couldn't even be computed to
+verify the bytes, and the malformed-PNG theory ate significant investigation
+time chasing a red herring (it turned out not to be the actual build
+failure, but it was a real risk and an unforced complexity). GIF89a has no
+checksums to get wrong — it's pure length-prefixed blocks — so a 1×1
+transparent GIF (~43 bytes) is both simpler to hand-construct correctly and
+impossible to get subtly wrong the way a PNG CRC can be.
 
 ### 6. Layout Blocks (in Layouts flow)
 
@@ -268,6 +325,45 @@ referenced (not rebuilt):
   `GetExternalLoginURL`, `GetExternalLogoutURL`, `FinishResetPassword`,
   `FinishUpdateEmail`, `IsExternalUser`
 
+## Model API Patterns (confirmed, don't re-discover these)
+
+These were each found via costly trial-and-error in prior runs — Mentor
+burned several minutes rediscovering each one from scratch. Feed them to
+Mentor up front (or as targeted troubleshooting hints) instead of letting
+it re-explore the API blind.
+
+- **Folders are scoped by tree type, not just name.** A folder created via
+  `CreateFolder(ESpaceTreeFolder.ServerActions, "Authentication")` and one
+  created via `CreateFolder(ESpaceTreeFolder.ClientActions, "Authentication")`
+  are two *different* folder objects that happen to share a display name —
+  the API allows this silently. Creating both (e.g. once per action type)
+  is correct and expected; the bug is creating a *second* one of the
+  *same* scope by accident (see "Post-crash-recovery structural check"
+  below) — that's the one that breaks the build.
+- **The reactive/mobile SendEmail node is a distinct type from the legacy
+  one.** Use `OutSystems.Model.Logic.Mobile.Nodes.ISendEmailNode` (has an
+  `Email` reference property) inside server actions for ODC reactive
+  apps — not `OutSystems.Model.Logic.Nodes.ISendEmailNode` (the legacy
+  traditional-web type, no usable `Email` property in this context).
+- **The Model API's code sandbox disallows `for`/`foreach`-with-mutation
+  loops, local functions, and sized array creation** (`new Type[]{...}`
+  is fine; `new Type[256]` is not). Don't attempt anything requiring a
+  hand-rolled algorithm (checksum computation, byte-manipulation loops) —
+  restructure the approach instead (see the GIF-over-PNG guidance above).
+- **Refreshing a stale `(System)` reference is NOT the same as re-reading
+  its attributes.** Calling something like
+  `eSpace.References.Named("(System)")` and printing its entities'
+  attribute names does not update the reference — it was silently a
+  no-op fix in a prior run and the same build error recurred immediately.
+  What actually works: re-adding the dependency via `add_references_to_elements`
+  (pointing at the current tenant's `System_`/`(System)` asset), or calling
+  `eSpace.RefreshDependency(globalKey, updateSpecificVersion: true)` on the
+  entity's own global key (not the reference's `ModuleKey`, which is an
+  `IKey` and won't satisfy the `IGlobalKey` parameter type). Confirm the
+  fix landed by checking the entity's attribute list actually changed
+  (schema drift, if any, will show up here) — not just that the call
+  didn't throw.
+
 ## Mentor Prompt Strategy
 
 Don't fire this as one giant Mentor call — batch it, same reasoning as
@@ -276,21 +372,193 @@ and this baseline is large (13 sub-layers). Suggested batching, each a
 separate `mentor_start`/resumed-session turn, confirmed working before
 moving to the next:
 
-1. **Flows + theme + role + client variables + images** — structural
-   scaffolding with no logic yet. Includes creating the empty `MainFlow`
-   (no screens/blocks/handler needed — just the flow itself).
+1. **Flows + theme + role + `IsUserProvider` + client variables + images**
+   — structural scaffolding with no logic yet. Includes creating the
+   empty `MainFlow` (no screens/blocks/handler needed — just the flow
+   itself).
 2. **Layout blocks + common blocks** — the shared UI chrome.
-3. **Screens** (Login → RecoverPasswordRequest → RecoverPasswordReset →
-   ChangePassword → InvalidPermissions → UserProfile).
-4. **Server actions + client actions** (Authentication folder).
-5. **Email templates + external site**.
-6. **OnException handler** (Common flow) — all four branches (Security,
+3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
+   RecoverPasswordReset → ChangePassword → InvalidPermissions).
+4. **UserProfile screen, on its own.** Disproportionately complex relative
+   to the other five screens combined (13 local vars, 10 screen actions,
+   a screen aggregate, a verification-code + countdown-timer flow) — a
+   prior run bundled it into the same batch as the other five screens and
+   its wiring came out incomplete (aggregate never bound to widgets,
+   `SaveChangesOnClick`/`SendVerificationCode` never bound to their save
+   button/get-code link). Giving it a dedicated batch and dedicated
+   validation pass catches that before it compounds into later batches.
+5. **Server actions + client actions** (Authentication folder) — wire
+   ALL previously-stubbed screen logic from batches 3 and 4, including
+   UserProfile's.
+6. **Email templates + external site**.
+7. **OnException handler** (Common flow) — all four branches (Security,
    Database, Communication, All Exceptions), then set it as the app's
    exception handler.
+8. **Wiring Closure & Validation Sweep** — see below. Always run this as
+   its own final batch, never skip it.
 
 Prompt each batch with the exact names, types, and logic from the
 relevant section above — Mentor performs worse on vague asks
 ("add a login flow") than on the literal spec.
+
+### Mandatory wiring instruction (include in every batch 2–7 prompt)
+
+A spec phrase like *"`LoginOnClick` — validate form, call `DoLogin`..."*
+or *"`OnReady` calls `LayoutReady`, `SetLang`, `AddFavicon`"* describes a
+**required graph edge**, not documentation of intent. In a prior run,
+Mentor created the actions with correct internal logic and created the
+screen widgets separately, but never connected the two — every button,
+link, and icon's click/change event was left unbound to the action that
+was supposed to fire it, and every "action calls action" edge inside a
+lifecycle hook (`OnReady` → `SetLang`/`AddFavicon`, `ClientLogout` →
+`DoLogout`, `SaveChangesOnClick` → `UpdateUser`, etc.) was frequently left
+as an unconnected stub too. This produced dozens of "Unused Screen
+Action" / "Unused Local Variable" / "Unused Client Action" warnings even
+though every individual piece existed and was individually correct.
+
+Append this to every batch prompt that creates or references widgets,
+actions, or lifecycle hooks:
+
+> For every "X calls Y" / "OnClick triggers Z" / lifecycle-hook phrase in
+> this spec, create an actual node connection (a Call node, an
+> Assign-then-navigate, a bound widget event) — not just the action's
+> internal logic in isolation. Every non-lifecycle screen/client action
+> you create in this batch must have at least one real caller (a widget
+> event or another action) by the end of this batch. Before ending the
+> turn, check `GetValidationMessages` for "Unused Action"/"Unused
+> Element"/"Unused Local Variable" warnings on anything created in *this*
+> batch specifically, and wire or remove them now — do not defer to a
+> later batch or assume they'll "clear once wired," because unless you
+> verify it in this same turn, they won't.
+
+### Avoiding stub-naming collisions across batches
+
+Batch 2 creates blocks (e.g. `UserInfo`) whose logic references actions
+that won't exist until Batch 5 (e.g. `ClientLogout` is meant to eventually
+call a `DoLogout` client action). If Mentor creates a same-named local
+placeholder/stub for that future action now, Batch 5's real
+`DoLogout` client action creation collides with it — the platform
+auto-suffixes the real one (`DoLogout2`) and Mentor then has to spend a
+turn diagnosing and unwinding the collision (delete the stub, rename the
+real action back). This happened in a prior run and cost most of a batch's
+wall-clock time. Prefer either: leave the future call genuinely
+unconnected with a comment node ("TODO: wire to DoLogout in Batch 5")
+rather than a same-named stub action, or if a stub action is unavoidable,
+name it distinctly (`DoLogout_Stub`, `DoLogout_Pending`) so it can't
+collide with the real one later.
+
+### Expected-unused exceptions (don't force-wire these)
+
+A few elements are legitimately unused at baseline stage because the
+thing that would consume them doesn't exist yet — don't manufacture fake
+wiring to silence these; document them as expected in the report instead:
+
+- **`Menu.ActiveItem` / `ActiveSubItem`** — these require real navigation
+  items, which don't exist because `MainFlow` is intentionally empty at
+  this stage (see Key Patterns). They can be wired once
+  `dbresults-odc-scaffold-entity` or a spec/design build adds real menu
+  items.
+- **`Login`'s external-provider group** (`ExternalIdentityProviders`,
+  `ShowExternalProvider`, `IsBuiltInExecuting`, `ExecutingIndex`) — only
+  becomes live if the tenant actually has an external identity provider
+  configured. If it doesn't, confirm with the user whether to leave this
+  scaffolded-but-inert (documented as expected) or drop it from the
+  screen entirely.
+
+## Wiring Closure & Validation Sweep (Batch 8)
+
+Always run this as a final, dedicated batch after OnException — never
+treat "some warnings are expected at this stage" as a reason to skip it.
+A prior run assumed unresolved warnings would "clear once wired" without
+ever re-checking, and dozens survived all the way to publish.
+
+1. Have Mentor call `GetValidationMessages(true)` (or equivalent full
+   validation) across the whole eSpace and list every remaining warning.
+2. Classify each one:
+   - **Fix now** — a widget/action/variable that should be connected and
+     isn't (the common case per the mandatory wiring instruction above).
+     Wire it in this same batch.
+   - **Expected-at-baseline** — matches one of the documented exceptions
+     above (`Menu.ActiveItem`/`ActiveSubItem`, external-provider group
+     with no external IdP configured), or another case you confirm with
+     the user follows the same "the consumer doesn't exist yet" logic.
+   - **Remove** — dead scaffolding that serves no purpose for this app;
+     confirm with the user before deleting anything from the documented
+     spec (sections 1–13 above) rather than silently trimming it.
+3. Report the final classified list to the user: what was wired, what's
+   expected-and-why, what (if anything) was removed. Don't report "0
+   errors" as equivalent to "0 warnings" or as "done" — the two are
+   different signals and both matter here.
+4. Only after this sweep is `no_changes_detected` on the subsequent
+   publish meaningful as a real "already up to date" signal rather than
+   "silently shipped with unwired stubs."
+
+## Post-Crash-Recovery Structural Check
+
+If any batch's Mentor turn crashes mid-way (a transient upstream error) and
+you resume/retry — especially a retry that involved creating folders,
+renaming actions, or deleting stub objects to resolve a naming collision —
+run this check before moving to the next batch. This is NOT optional
+cleanup; it's the single highest-value check in this whole skill for
+catching build-breaking-but-validation-invisible defects.
+
+A prior run's Batch 5 crashed, and the recovery sequence (folder creation
++ rename + stub deletion) silently left **two distinct folder objects both
+named "Authentication"** — one correctly scoped to server actions, one to
+client actions, created by two separate recovery attempts. `GetValidationMessages`
+never flagged it (both folders are individually valid objects), but the
+build compiler failed with a generic `OS-DPL-42202` ("An error has occurred
+while building the application") for 9 build attempts across 3 rounds of
+unrelated guessing (image format, theme assignment, expression syntax)
+before this was found. Checking it directly the moment a crash-recovery
+touches folders/objects would have caught it in seconds.
+
+Have Mentor:
+1. Enumerate `eSpace.Folders` — list every folder's `Name` and its
+   `ObjectKey`. If any name appears more than once, that's the defect:
+   consolidate into a single folder per (name, scope) pair and reassign
+   every action/element pointing at the duplicate.
+2. Enumerate every server action and client action's `.Folder` property —
+   confirm none are `null`/unassigned (a crash-recovery loop that touches
+   folder assignment can silently drop an action's folder reference
+   entirely, not just duplicate the folder).
+3. Report the folder count and names — if it doesn't match what this
+   batch was supposed to create, treat that as a real defect, not noise.
+
+## Pre-Publish Structural Sanity Check
+
+Run this once, before the *first* publish attempt of the whole baseline —
+distinct from Batch 8's warning-classification sweep, because these are
+defects `GetValidationMessages` cannot see at all (they're not warnings;
+they're consistency issues in objects the validator doesn't cross-check
+against the build compiler's assumptions):
+
+1. **Duplicate folder names** — see Post-Crash-Recovery Structural Check
+   above; run it even if nothing crashed this session, as a cheap
+   insurance check.
+2. **`(System)` reference health** — confirm the `Hash` is non-zero (see
+   pre-flight step 7). If zero, fix it now via the pattern in Model API
+   Patterns — don't discover this only after a failed publish.
+3. **No orphaned action-folder assignments** — every server/client action
+   has a non-null `.Folder`.
+
+If the first publish attempt still fails, do NOT start guessing broadly
+(images, unrelated expressions, unrelated themes) — that consumed most of
+a prior run's debugging time on red herrings. Instead, match the error
+code to a known cause first:
+
+- **`OS-DPL-42202`** ("An error has occurred while building the
+  application") — a generic build-compiler failure. First suspect:
+  duplicate folder names or orphaned folder assignments (see checks
+  above) — especially if any batch this session involved a crash/retry.
+  Only broaden to other areas (SendEmail node structure, exception
+  handler wiring, expression syntax) if the folder/reference checks come
+  back clean.
+- **`OS-BEW-CODE-40036`** ("uses entity 'X' that is incompatible with its
+  definition in reference 'Y'") — a stale/schema-mismatched reference.
+  Fix via the `(System)` reference refresh pattern in Model API Patterns,
+  then re-verify every expression reading an attribute of that entity
+  (schema drift is common — see pre-flight step 8).
 
 ## Key Patterns
 
@@ -344,6 +612,22 @@ After each Mentor batch, confirm via the matching context tool:
       Communication, All Exceptions) in that precedence order, and is
       registered as the app's exception handler
 - [ ] 0 errors in validation after each batch before moving to the next
+- [ ] `eSpace.IsUserProvider` is `true` — no `ImplicitSelfUserProvider`
+      warning
+- [ ] Referenced `OutSystemsUI` version supports the chosen `IconLibrary`
+      (`Phosphor2.0` needs ≥ 2.28.0) — checked in pre-flight, re-confirm
+      here
+- [ ] After Batch 8 (Wiring Closure & Validation Sweep): 0 "Unused
+      Action"/"Unused Element"/"Unused Local Variable"/"Unused Input
+      Parameter"/"Unused Aggregate" warnings remain, other than ones
+      explicitly classified as expected-at-baseline and reported to the
+      user by name
+- [ ] Pre-Publish Structural Sanity Check run once before the first
+      publish attempt: no duplicate folder names, no orphaned
+      action-folder assignments, `(System)` reference hash non-zero
+- [ ] If any batch crashed and was retried: Post-Crash-Recovery
+      Structural Check run before moving to the next batch, not deferred
+      to the end
 
 ## Related Skills
 
