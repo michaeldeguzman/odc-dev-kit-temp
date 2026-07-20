@@ -219,8 +219,16 @@ impossible to get subtly wrong the way a PNG CRC can be.
   `HasFixedHeader`, `MenuBehavior` (`SideMenuBehavior` identifier),
   `EnableAccessibilityFeatures`, `ExtendedClass`. Same lifecycle as
   `LayoutTopMenu`.
-- **`LayoutBase` / `LayoutBaseSection`** — utility layouts for fully
-  custom page structures.
+- **`LayoutBase`** — utility layout for fully custom page structures.
+  Parameters: `HasFixedHeader` (Boolean, default True),
+  `EnableAccessibilityFeatures`, `ExtendedClass` — same three as
+  `LayoutTopMenu`.
+- **`LayoutBaseSection`** — a section utility used inside `LayoutBase`
+  custom structures. Parameters: `BackgroundColor` (Color identifier),
+  `Padding` (Space identifier), `ExtendedClass` (Text). Unlike the other
+  blocks' parameters, `BackgroundColor`/`Padding` bind directly to the
+  section widget's own native style properties (not a CSS-class
+  expression) — that binding is what "consumes" them.
 
 **Every parameter above must be bound to a real widget property on the
 block's own root/wrapper container — not just declared and left for a
@@ -230,24 +238,29 @@ declared-but-unread inside their own blocks — this is the exact same
 "declared but never consumed" defect as an unwired action, just applied
 to an input parameter instead of a screen action. Concretely:
 
-- `ExtendedClass` (all three blocks) — bind into the root container's own
+- `ExtendedClass` (`LayoutBlank`, `LayoutTopMenu`, `LayoutSideMenu`,
+  `LayoutBase`) — bind into the root container's own
   `ExtendedClass`/CSS-class expression, e.g.
   `"layout-blank " + ExtendedClass` (adjust the base class name per
   block). This is a real, permanent binding — it doesn't need any future
   screen to exist first.
-- `EnableAccessibilityFeatures` (all three blocks) — bind into the same
+- `EnableAccessibilityFeatures` (same four blocks) — bind into the same
   root container's class expression conditionally, e.g.
   `If(EnableAccessibilityFeatures, " a11y-enabled", "")` appended to the
   `ExtendedClass` expression above.
-- `HasFixedHeader` (`LayoutTopMenu`, `LayoutSideMenu`) — bind into the
-  `Header` placeholder's own container class expression, e.g.
-  `If(HasFixedHeader, "fixed-header", "")`.
+- `HasFixedHeader` (`LayoutTopMenu`, `LayoutSideMenu`, `LayoutBase`) —
+  bind into the `Header` placeholder's own container class expression,
+  e.g. `If(HasFixedHeader, "fixed-header", "")`.
 - `MenuBehavior` (`LayoutSideMenu` only) — bind into the `Navigation`
   placeholder's `<aside>` container class expression (or a data
   attribute consumed by the side-menu JS behavior), e.g.
   `"side-menu-" + MenuBehavior`.
+- `LayoutBaseSection`'s `BackgroundColor`/`Padding` — bind directly to
+  the section widget's own native `BackgroundColor`/`Padding` style
+  properties (there is no CSS-class expression to append to here); its
+  `ExtendedClass` follows the same pattern as the other blocks above.
 
-Wire all four bindings while building each block in Batch 2 — this
+Wire all these bindings while building each block in Batch 2 — this
 requires zero business screens or menu items to exist first, unlike
 `Menu.ActiveItem`/`ActiveSubItem` below, so there's no reason to defer it.
 
@@ -272,12 +285,24 @@ spec/design build. Required values for every `LayoutTopMenu` instance:
 | `ExtendedClass` | `""` |
 
 The same rule applies to `LayoutBlank`'s `EnableAccessibilityFeatures`
-(`False`) / `ExtendedClass` (`""`), and to `LayoutSideMenu`'s
+(`False`) / `ExtendedClass` (`""`), to `LayoutSideMenu`'s
 `HasFixedHeader` (`True`) / `EnableAccessibilityFeatures` (`False`) /
 `ExtendedClass` (`""`) / `MenuBehavior` (an explicit value — `""` if the
-tenant has no specific side-menu behavior configured). Never leave a
-layout-block argument blank on a screen just because the parameter isn't
-`Mandatory` — set it explicitly, every time, on every screen instance.
+tenant has no specific side-menu behavior configured), and to
+`LayoutBase`'s `HasFixedHeader` (`True`) / `EnableAccessibilityFeatures`
+(`False`) / `ExtendedClass` (`""`). For `LayoutBaseSection`, `ExtendedClass`
+follows the same `""` rule; `BackgroundColor`/`Padding` are the two
+exceptions in this whole baseline — they're identifier-typed parameters
+(Color/Space), not Boolean/Text, and leaving them empty is the correct
+choice when no specific background/padding is wanted (empty means "no
+override," not "missing value," for these two). Never leave a
+Boolean/Text layout-block argument blank on a screen just because the
+parameter isn't `Mandatory` — set it explicitly, every time, on every
+screen instance. None of these apply yet within this baseline's own
+screens beyond `LayoutTopMenu`/`LayoutBlank` (`LayoutBase`/
+`LayoutBaseSection` aren't placed by any of this skill's own screens),
+but confirm the rule when a later skill (`dbresults-odc-scaffold-entity`,
+a spec/design build) places them.
 
 ### 7. Common Blocks (in Common flow)
 
@@ -299,6 +324,13 @@ layout-block argument blank on a screen just because the parameter isn't
   until business screens exist. Add them later, at the same time real
   menu item links are added to `PageLinks` (`dbresults-odc-scaffold-entity`
   or a spec/design build), when there's finally something to bind them to.
+  **When that later work does add `ActiveItem`/`ActiveSubItem`** (default
+  `-1` each, matching the same "no active item" convention as
+  `ExecutingIndex`), the same call-site rule from section 6 applies to
+  every place a `Menu` instance is embedded (`LayoutTopMenu`'s and
+  `LayoutSideMenu`'s header) — explicitly pass `ActiveItem`/`ActiveSubItem`
+  arguments (either `-1` or a real computed current-page index), don't
+  leave them blank on the instance.
 - **`UserInfo`** — shows logged-in user avatar + name (link to
   `UserProfile`) + logout icon; shows a login link if not logged in.
   `ClientLogout` screen action calls `DoLogout` then redirects.
@@ -377,8 +409,11 @@ screen spec below doesn't repeat the values inline.
   **Cross-wiring `IsBuiltInExecuting` and `ExecutingIndex` — this is the
   actual reason both variables exist, and it's why they read as unused
   if only bound one-directionally:** they gate the loading/disabled
-  state of *every* login button on the screen together, not just their
-  own button:
+  state of *every* interactive element on the screen together, not just
+  their own button:
+  - `UserEmail`'s and `Password`'s own inputs — bind `Enabled` to
+    `Not(IsBuiltInExecuting)` so the fields lock while a login attempt
+    (built-in or external) is in flight, not just the buttons.
   - The built-in login button's `Enabled`/`ButtonLoading` expression
     should reference `Not(IsBuiltInExecuting) And ExecutingIndex = -1`
     (or equivalent) — it disables while EITHER the built-in login OR any
@@ -386,11 +421,14 @@ screen spec below doesn't repeat the values inline.
   - Each external-provider list item's `Enabled` expression should
     likewise reference `Not(IsBuiltInExecuting) And ExecutingIndex = -1`,
     and its own loading-spinner expression should be
-    `ExecutingIndex = <that list's own item-index expression>` so only
-    the clicked button shows as loading, not all of them.
+    `ExecutingIndex = CurrentRowNumber` (the provider list's own
+    0-based row-iteration expression, whatever it's actually named in
+    this widget — the point is each row compares `ExecutingIndex` against
+    its own index, not a fixed value) so only the clicked button shows as
+    loading, not all of them.
   Wiring only the "obvious" half (e.g. just the clicked button's own
-  spinner) leaves the other bindings — and often the variables
-  themselves — looking unused to the validator.
+  spinner, or the buttons but not the inputs) leaves the other bindings —
+  and often the variables themselves — looking unused to the validator.
 
   **Batch sequencing note:** `DoLogin` and `DoLogout` are Batch-5
   actions, so in Batch 3 those two specific calls are the ones that get
@@ -925,8 +963,9 @@ After each Mentor batch, confirm via the matching context tool:
       is using a theme that is larger than 14KB" warning is actually
       absent, not just that each template's `Theme` field looks correct
 - [ ] Every layout block parameter (`ExtendedClass`,
-      `EnableAccessibilityFeatures`, `HasFixedHeader`, `MenuBehavior`) is
-      bound into a real widget property on its own block, per section 6 —
+      `EnableAccessibilityFeatures`, `HasFixedHeader`, `MenuBehavior`,
+      and `LayoutBaseSection`'s `BackgroundColor`/`Padding`) is bound
+      into a real widget property on its own block, per section 6 —
       confirm after Batch 2, don't defer
 - [ ] Separately from the above: every screen's layout-block INSTANCE
       (not the block's own definition) has every one of that block's
@@ -937,7 +976,12 @@ After each Mentor batch, confirm via the matching context tool:
       of these are `Mandatory`, but a blank argument on the screen
       instance is a confirmed publish-time error regardless — check
       every screen created in Batches 3-4, don't assume the block's own
-      default silently applies
+      default silently applies. `LayoutBase`/`LayoutBaseSection` aren't
+      placed by this baseline's own screens, but the same rule applies
+      the first time a later skill places one
+- [ ] `Login`'s `UserEmail`/`Password` inputs (not just the login
+      button) have `Enabled = Not(IsBuiltInExecuting)` — the cross-wiring
+      note in section 8 covers inputs, not only buttons
 - [ ] `Menu` block has no `ActiveItem`/`ActiveSubItem` parameters at
       baseline (they're deferred until real menu items exist — see
       section 7)
