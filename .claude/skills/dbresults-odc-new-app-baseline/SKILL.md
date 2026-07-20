@@ -122,7 +122,10 @@ that already exist.
   screens go later (`dbresults-odc-scaffold-entity` or the spec/design
   build skills add to it) — don't add anything here as part of this
   baseline, and don't treat an empty MainFlow as a sign the scaffold is
-  incomplete.
+  incomplete. **Default screen:** do NOT set `Login` or any Common-flow
+  screen as the app's default screen. The default screen must be the first
+  screen created in MainFlow — set it there when that screen is added, not
+  here.
 
 ### 2. Themes
 
@@ -347,7 +350,7 @@ parameters** (see the call-site rule under section 6) — don't leave
 `MenuBehavior` blank on any screen's layout instance just because the
 screen spec below doesn't repeat the values inline.
 
-- **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank`. Local
+- **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank`, **not the default screen** (default screen belongs to the first screen in MainFlow — do not mark Login as default). Local
   vars: `UserEmail`, `Password`, `IsPasswordVisible`,
   `ShowBuiltInProvider`, `ShowExternalProvider`, `IsBuiltInExecuting`,
   `ExecutingIndex` (Integer, default `-1` — not `0`, since `0` is a valid
@@ -890,6 +893,12 @@ code to a known cause first:
 - **MainFlow ships empty on purpose** — a fresh scaffold has 0 screens, 0
   blocks, 0 exception handler in MainFlow. That's the expected end state,
   not a gap to fill in as part of this baseline.
+- **Default screen is NOT Login** — `Login` lives in the Common flow and
+  must never be marked as the app's default screen. The default screen is
+  the first screen added to MainFlow by whatever skill runs after this one
+  (`dbresults-odc-scaffold-entity`, `outsystems-spec-driven-build`, etc.).
+  Set `IsDefaultScreen = true` on that first MainFlow screen at the time it
+  is created.
 - **OnException is app-wide, not per-flow** — it lives in Common but is
   registered as the whole app's exception handler, so it also covers
   unhandled exceptions raised from MainFlow screens once those exist.
