@@ -122,7 +122,11 @@ that already exist.
   - Default menu: `Menu`
   - Theme values: `PrimaryColor`, `SecondaryColor`, `AppPrimaryColor` — all
     set to `{BrandColor}`
-- **`EmailTheme`** — separate theme used only by the email templates
+- **`EmailTheme`** — separate theme used only by the email templates. Apply
+  the CSS in [`assets/EmailTheme.css`](assets/EmailTheme.css) as this
+  theme's stylesheet (table/list-item widget styles for email-safe
+  layouts) — don't leave it as a bare theme with no styles, and don't
+  hand-author the CSS from scratch each run.
 
 ### 3. Role & App Identity
 
@@ -424,7 +428,9 @@ moving to the next:
 1. **Flows + theme + role + `IsUserProvider` + client variables + images**
    — structural scaffolding with no logic yet. Includes creating the
    empty `MainFlow` (no screens/blocks/handler needed — just the flow
-   itself).
+   itself). When creating `EmailTheme`, paste the contents of
+   `assets/EmailTheme.css` in this skill's folder into its stylesheet
+   verbatim — don't summarize or re-derive it.
 2. **Layout blocks + common blocks** — the shared UI chrome.
 3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
    RecoverPasswordReset → ChangePassword → InvalidPermissions).
@@ -648,6 +654,9 @@ After each Mentor batch, confirm via the matching context tool:
 
 - [ ] `context_themes`: 2 themes exist (`{App}` extending `OutSystemsUI`,
       `EmailTheme`)
+- [ ] `EmailTheme`'s stylesheet matches `assets/EmailTheme.css` (not left
+      blank) — check the theme's actual CSS content, not just that the
+      theme object exists
 - [ ] `context_roles`: the confirmed application role exists
 - [ ] `context_screens`: 6 screens exist with correct
       `AnonymousAccess` flags and layouts
