@@ -1,6 +1,6 @@
 ---
 name: dbresults-odc-new-app-baseline
-description: Use right after `app_create` mints a new ODC web app, BEFORE any business build (`outsystems-spec-driven-build`, `outsystems-design-to-app`, or `dbresults-odc-scaffold-entity`). `app_create`'s "blank" shell is genuinely empty — 0 screens, 0 actions, 0 themes, only 1 auto-generated role (verified empirically against a live tenant) — it does NOT include the standard authentication/theme/layout foundation every real ODC web app needs. This skill scaffolds that foundation: 3 UI flows (Common, Layouts, Emails — plus an intentionally empty MainFlow), 2 themes, the app role, client variables, images, layout blocks, common blocks, 6 auth screens, server/client actions, email templates, and the app-wide OnException handler. Use when asked to "set up a new app", "scaffold the app baseline", "add login/auth to this app", "this app has no login screen", "add a global exception handler", "set up OnException", or before starting any greenfield build.
+description: Use right after `app_create` mints a new ODC web app, BEFORE any business build (`outsystems-spec-driven-build`, `outsystems-design-to-app`, or `dbresults-odc-scaffold-entity`). `app_create`'s "blank" shell is genuinely empty — 0 screens, 0 actions, 0 themes, only 1 auto-generated role (verified empirically against a live tenant) — it does NOT include the standard authentication/theme/layout foundation every real ODC web app needs. This skill scaffolds that foundation: 3 UI flows (Common, Layouts, Emails — plus an intentionally empty MainFlow), 2 themes, the app role, client variables, images, layout blocks, common blocks, 6 auth screens, server/client actions, and email templates. Use when asked to "set up a new app", "scaffold the app baseline", "add login/auth to this app", "this app has no login screen", or before starting any greenfield build.
 ---
 
 # ODC New App Baseline — Authentication / Theme / Layout Scaffold
@@ -112,8 +112,7 @@ that already exist.
 
 ### 1. UI Flows
 
-- **Common** — authentication screens, shared blocks, email templates, the
-  app-wide `OnException` handler
+- **Common** — authentication screens, shared blocks, email templates
 - **Layouts** — layout blocks used by all screens
 - **Emails** — email templates (nested under Common in some tenants; ask
   if Mentor places it differently)
@@ -130,6 +129,7 @@ that already exist.
 ### 2. Themes
 
 - **`{App}`** — app-specific theme, extends `OutSystemsUI`
+  - Description: `"Application theme."`
   - Grid type: Fluid
   - Max width: 1280
   - Icon library: Phosphor2.0
@@ -142,6 +142,8 @@ that already exist.
   theme's stylesheet (table/list-item widget styles for email-safe
   layouts) — don't leave it as a bare theme with no styles, and don't
   hand-author the CSS from scratch each run.
+  - Description: `"Application emails theme."`
+  - Grid type: Fluid (12 columns, 20px gutter, no min/max width) — **not** `Inherited`; explicitly set this when creating the theme.
   **Do NOT extend `OutSystemsUI`** — unlike `{App}`, `EmailTheme` should
   be a standalone/root theme. A prior run created `EmailTheme` as an
   `OutSystemsUI`-derived theme (matching the pattern used for `{App}`),
@@ -291,7 +293,7 @@ Minimal full-page layout with no header or menu. Use for login, splash, and full
 
 | Action | Trigger | Logic |
 |---|---|---|
-| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass` (no input arguments — uses the icon library configured at app level). |
 | `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
 | `OnDestroy` | On removal | Calls `LayoutDestroy`. |
 
@@ -329,7 +331,7 @@ Header with top navigation. Most common layout for apps with few menu items.
 
 | Action | Trigger | Logic |
 |---|---|---|
-| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass` (no input arguments — uses the icon library configured at app level). |
 | `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
 | `OnDestroy` | On removal | Calls `LayoutDestroy`. |
 | `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
@@ -386,7 +388,7 @@ Side navigation panel + header. Best for apps with many menu items.
 
 | Action | Trigger | Logic |
 |---|---|---|
-| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass` (no input arguments — uses the icon library configured at app level). |
 | `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
 | `OnDestroy` | On removal | Calls `LayoutDestroy`. |
 | `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
@@ -439,7 +441,7 @@ Fully custom layout shell — no menu or navigation built in. Use when composing
 
 | Action | Trigger | Logic |
 |---|---|---|
-| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass` (no input arguments — uses the icon library configured at app level). |
 | `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
 | `OnDestroy` | On removal | Calls `LayoutDestroy`. |
 | `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
@@ -683,7 +685,13 @@ Container [margin-left-s] (logout — shown when logged in)
 
 ### 8. Screens (in Common flow)
 
-All screens require the `{App}` role except where noted `AnonymousAccess = true`.
+All 6 screens have the `{App}` role attached — including the 4 anonymous-access
+screens (Login, RecoverPasswordRequest, RecoverPasswordReset, InvalidPermissions).
+In ODC, `AnonymousAccess = true` overrides role-based access control, so the role
+attachment on anonymous screens is harmless but must be present. **Do NOT remove
+the role from anonymous screens during Batch 7 cleanup** — this was done in a
+prior run (TestNewWebApp6 Batch 7) and was incorrect. The reference implementation
+(NewApp) has the role on all 6 screens.
 **Every screen below must explicitly set all of its layout block's input
 parameters** (see the call-site rule under section 6) — don't leave
 `HasFixedHeader`/`EnableAccessibilityFeatures`/`ExtendedClass`/
@@ -698,7 +706,9 @@ screen spec below doesn't repeat the values inline.
   `OnInitialize` (redirect if already logged in; load provider status +
   external providers list), `LoginOnClick`, `LoginProviderOnClick`,
   `OnTogglePasswordVisibility` (toggle `IsPasswordVisible`, call
-  `ShowPassword`). UI: email input, password input with show/hide
+  `ShowPassword` with **no WidgetId argument** — Login passes empty/default,
+  unlike `ChangePassword`/`RecoverPasswordReset` which pass `Input_NewPassword.Id`
+  / `Input_ConfirmPassword.Id`). UI: email input, password input with show/hide
   toggle, "Forgot password?" link, login button (`ButtonLoading`),
   separator, external provider buttons list.
 
@@ -708,27 +718,30 @@ screen spec below doesn't repeat the values inline.
   which is what left `IsBuiltInExecuting` looking unused):
   1. Set `IsBuiltInExecuting = True` (disables inputs, shows the login
      button's loading state).
-  2. Validate the form (e.g. `LoginForm.Valid`). If invalid: set
-     `IsBuiltInExecuting = False` and end — do not attempt a login. If
-     valid: clear any previous feedback message and proceed.
+  2. Validate the form: if `LoginForm.Valid` is false, set
+     `IsBuiltInExecuting = False` and end. If valid: call
+     `FeedbackMessageClose` (clears any prior error toast), then proceed.
   3. Call `DoLogin`, passing `UserEmail` as username and `Password`.
-  4. Call a role-membership check for the `{App}` role — either the
-     role's own generated boolean check function (custom Roles are
-     directly callable as expressions, e.g. `{App}()`) or a thin wrapper
-     client action around it (a live run named this `CheckNewAppRole`,
-     but the name should match the app's actual role per the `{App}`
-     convention — confirm the real generated function/action name with
-     Mentor rather than assuming this exact name).
-  5. Branch on the result:
+  4. Call `Check{App}Role` as an `ExecuteClientAction` — the platform
+     generates this client action for every role; it outputs
+     `HasRole: Boolean`. **Do NOT create a wrapper client action.** This
+     call runs **unconditionally** immediately after `DoLogin`, regardless
+     of `DoLogin`'s success or failure. Prior runs created custom
+     `Check{App}Role`/`Has{App}Role` wrapper actions — these collide with
+     the platform-reserved name and cause auto-rename suffixes; the
+     platform's own generated action IS `Check{App}Role`, so call it
+     directly.
+  5. Branch on `DoLogin.Success`:
      - `DoLogin` failed → clear `Password`, set
-       `IsBuiltInExecuting = False`, show `DoLogin`'s own error message.
-     - `DoLogin` succeeded but the role check fails → clear `Password`,
-       set `IsBuiltInExecuting = False`, show a "No permissions." error,
-       then call `DoLogout` — an authenticated-but-unauthorized session
-       must not be left standing.
-     - `DoLogin` succeeded and the role check passes → redirect to
-       `Client.LastURL` (or the app root if empty), with a fade
-       transition.
+       `IsBuiltInExecuting = False`, show `DoLogin.ErrorMessage` as error.
+     - `DoLogin` succeeded but `Check{App}Role.HasRole = False` → clear
+       `Password`, set `IsBuiltInExecuting = False`, show `"No
+       permissions."` error, call `DoLogout` — an
+       authenticated-but-unauthorized session must not be left standing.
+     - `DoLogin` succeeded and `Check{App}Role.HasRole = True` → navigate
+       to `RedirectToURL` screen passing
+       `If(Client.LastURL = "", GetOwnerURLPath(), Client.LastURL)` as the
+       URL parameter.
   6. Exception handler on the whole action — clear `Password`, set
      `IsBuiltInExecuting = False`, show the exception message as an
      error. (This is in addition to, not instead of, the branch-level
@@ -786,7 +799,7 @@ screen spec below doesn't repeat the values inline.
 
   | Action | Trigger | Logic |
   |---|---|---|
-  | `ResetPasswordOnClick` | "Reset password" button | Validates form → sets `IsExecuting = True` → calls `SendResetPasswordEmail(Email)` → on success navigates to `RecoverPasswordReset(Email)`. On failure shows error message. |
+  | `ResetPasswordOnClick` | "Reset password" button | (1) If `RecoverPasswordForm.Valid` false → end. (2) `IsExecuting = True`. (3) Call `SendResetPasswordEmail(CustomerEmail = Email)`. (4) On success: `IsExecuting = False` → navigate to `RecoverPasswordReset` passing only `Email` (the `VerificationCode` parameter is NOT set — left empty). (5) On failure: show `"An error has occured. Please try again later."` (note: "occured" is a typo in the original — single 'r'), `IsExecuting = False`. **No `AllExceptions` handler.** |
 
   UI: logo, "Forgot your password?" heading, email input, "Reset password"
   button (`IsExecuting` for loading state), "Go to login" link → `Login`.
@@ -849,7 +862,7 @@ screen spec below doesn't repeat the values inline.
   | `PasswordPolicyCompliant` | `PasswordPolicy` block `Compliant` event | Sets `IsNewPasswordCompliant = IsValid` → calls `SetIsButtonEnabled`. |
   | `OnToggleNewPasswordVisibility` | Eye icon on new password | Toggles `IsPasswordVisible` → calls `ShowPassword(Input_NewPassword.Id)`. |
   | `OnToggleConfirmPasswordVisibility` | Eye icon on confirm password | Toggles `IsConfirmPasswordVisible` → calls `ShowPassword(Input_ConfirmPassword.Id)`. |
-  | `SetNewPasswordOnClick` | "Set new password" button | Validates form + passwords match → calls system `ChangePassword(OldPassword, NewPassword, User.Email)` → on success shows message and navigates to `UserProfile`. Handles invalid credentials, complexity failure, and too-many-attempts errors. |
+  | `SetNewPasswordOnClick` | "Set new password" button | (1) If `Form.Valid` false → end. (2) `IsExecuting = True`. (3) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Password and Confirm password don't match."`, `IsExecuting = False` → end. (4) Call system `ChangePassword(OldPassword, NewPassword, Username = GetUserDetail.List.Current.User.Email)`. (5) On success: show `"Password successfully changed!"` → navigate to `UserProfile`. On `InvalidCredentials`: `Input_OldPassword.Valid = False`, `ValidationMessage = "Incorrect password."`. On `PasswordComplexityPolicyFailed`: `Input_NewPassword.Valid = False`, `ValidationMessage = "Password doesn't meet the requirements."`, `IsButtonEnabled = False`. On `TooManyFailedAttempts`: show `"Too many failed attempts, please try again after some time."`. Other failure: show `"An unknown error occurred. Please try again later."`. **No `AllExceptions` handler.** |
 
   Layout: `Breadcrumbs` placeholder has "← Back to profile" link → `UserProfile`.
   `Title` = "Change your password". `MainContent` has a `Columns2` block with the
@@ -870,18 +883,46 @@ screen spec below doesn't repeat the values inline.
   `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`,
   `ExtendedClass = ""` explicitly set on the instance (see section 6 —
   this is the screen a live run's `LayoutTopMenu` publish-time error was
-  actually found on). Screen
-  aggregate `GetUserDetails` (queries `User` filtered by `GetUserId()`).
-  Local vars: `OldName`, `OldEmail`, `OldPhotoURL`, `IsExternal`,
-  `VerificationCode`, `ShowVerificationCode`, `ShowGetCodeButton`,
-  `CountdownValue`, `TimerIntervalHandle`, `IsButtonEnabled`,
-  `IntervalDuration`, `IsExecuting`, `IsExecuting_GetCode`. Screen
-  actions: `OnInitialize`, `GetUserDetailsOnAfterFetch`,
-  `ValidateUserDetails`, `ValidateInputsOnChange`,
-  `CheckIsButtonEnabled`, `SaveChangesOnClick`, `SendVerificationCode`,
-  `UpdateCountdown`, `StopCountdown`, `OnDestroy`. UI: profile photo,
-  name input, photo URL input, email input, verification-code flow (get
-  code → code input + resend countdown), save button.
+  actually found on).
+  - **Title:** `"Your profile"`
+  - **Description:** `"Screen where the users can see and edit the user profile."`
+  - **Screen aggregate:** `GetUserDetails` — Source: `User` (System), Filter:
+    `User.Id = GetUserId()`, MaxRecords: `1`, Fetch: At Start. OnAfterFetch →
+    `GetUserDetailsOnAfterFetch`.
+  - **Local variables:**
+
+  | Name | Type | Default | Description |
+  |---|---|---|---|
+  | `OldName` | Text | — | Holds the user name before editing |
+  | `OldEmail` | Email | — | Holds the user email before editing |
+  | `OldPhotoURL` | Text | — | Holds the user photo URL before editing |
+  | `IsExternal` | Boolean | — | True if user logged in from an external identity provider |
+  | `VerificationCode` | Text | — | Verification code input for email change |
+  | `ShowVerificationCode` | Boolean | `False` | Shows the verification code input and resend link |
+  | `ShowGetCodeButton` | Boolean | `False` | Shows the "Get verification code" button |
+  | `CountdownValue` | Integer | — | Current countdown display value |
+  | `TimerIntervalHandle` | JavaScript object | — | Stores the `setInterval` timer handle |
+  | `IsButtonEnabled` | Boolean | — | Enables/disables the save button |
+  | `IntervalDuration` | Integer | `1000` | Countdown interval in milliseconds (1000 = 1 s) |
+  | `IsExecuting` | Boolean | `False` | True while the save operation is in progress |
+  | `IsExecuting_GetCode` | Boolean | `False` | True while the verification code send is in progress |
+
+  - **Screen actions:**
+
+  | Action | Trigger | Key logic |
+  |---|---|---|
+  | `OnInitialize` | Screen init | Assign `IsExecuting = False`, `IsExecuting_GetCode = False`. Call `IsExternalUser()` (System). Assign `IsExternal = IsExternalUser.IsExternalUser`. |
+  | `GetUserDetailsOnAfterFetch` | `GetUserDetails.OnAfterFetch` | If `GetUserId() <> NullTextIdentifier()`: assign `OldName`, `OldPhotoURL`, `OldEmail` from `GetUserDetails.List.Current.User`. |
+  | `ValidateUserDetails` | Called by `ValidateInputsOnChange`, `SaveChangesOnClick` | Validates email (non-empty + valid format) → sets `EmailInput.Valid`/`ValidationMessage`. Validates name (non-empty) → sets `NameInput.Valid`/`ValidationMessage`. If `ShowGetCodeButton and ShowVerificationCode`: validates `VerificationCode` non-empty → sets `VerificationCodeInput.Valid`/`ValidationMessage`. |
+  | `ValidateInputsOnChange` | Input change events | Sets `ShowGetCodeButton = (OldEmail <> User.Email and Email non-empty and valid format)`. Calls `ValidateUserDetails` then `CheckIsButtonEnabled`. |
+  | `CheckIsButtonEnabled` | Called by `ValidateInputsOnChange` | `IsButtonEnabled = True` if: (name or photo changed and email unchanged) OR (email changed + `ShowVerificationCode = True` + `Length(VerificationCode) = 6`). False in all other cases. |
+  | `SaveChangesOnClick` | "Save" button | (1) `IsExecuting = True`. (2) Call `ValidateUserDetails`. (3) If form invalid: `IsExecuting = False`, end. (4) If email changed: call `FinishUpdateEmail(VerificationCode)` — on `InvalidVerificationCode` set `VerificationCodeInput.Valid = False`. (5) If form valid: call `UpdateUser(mapTo { Name: User.Name, PhotoURL: User.PhotoUrl })`. (6) On `UpdateUser` success: write `Client.UserName`, `Client.UserPhotoURL`; clear `VerificationCode`, `IsButtonEnabled`, `ShowVerificationCode`, `ShowGetCodeButton`; show success message `"Your profile has been successfully updated!"`; redirect to `UserProfile`. (7) On `UpdateUser` failure: show `"Invalid credentials"` / `"Invalid name"` / `"Invalid photo URL."` / `"Update user failed."` depending on failure reason; set `IsExecuting = False`. AllExceptions handler: show `ExceptionMessage`, set `IsExecuting = False`. |
+  | `SendVerificationCode` | "Get verification code" button/link | If email unchanged: end. `IsExecuting_GetCode = True`. Call `ValidateUserDetails`. Call `SendChangeEmail(User.Email)`. On failure: `IsExecuting_GetCode = False`, show `"Unable to send email. Please try again later."`. On success: show `"A verification code was sent to your email"`; set `ShowVerificationCode = True`, `CountdownValue = 5`; run `JsSetInterval` JS node (`setInterval(() => { $actions.UpdateCountdown && $actions.UpdateCountdown(); }, $parameters.IntervalDuration)` — input: `IntervalDuration`, output: `TimerHandle`); assign `TimerIntervalHandle = JsSetInterval.TimerHandle`; `IsExecuting_GetCode = False`. AllExceptions handler: show `ExceptionMessage`, `IsExecuting_GetCode = False`. |
+  | `UpdateCountdown` | Called by `JsSetInterval` timer | Decrement `CountdownValue`. If `CountdownValue <= 0`: call `StopCountdown`. |
+  | `StopCountdown` | Called by `UpdateCountdown`, `OnDestroy` | Run `JSClearTimerIntervalHandle` JS node (`if ($parameters.TimerHandle) { clearInterval($parameters.TimerHandle); }` — input: `TimerHandle` ← `TimerIntervalHandle`). |
+  | `OnDestroy` | Screen destroy | Call `StopCountdown`. |
+
+  UI: name input, photo URL input, email input, "Get verification code" button (shown when `ShowGetCodeButton`), verification code input + countdown display + resend link (shown when `ShowVerificationCode`), save button (`IsExecuting` loading state, `IsButtonEnabled` enabled state).
 
 **Cross-Screen Navigation Map:**
 ```
@@ -937,6 +978,7 @@ If: StartResetPassword.StartResetPasswordResult.Success
         Aggregate: TryGetNameByEmail
           Source: User
           Filter: User.Email = CustomerEmail
+          Sort: User.Name (ascending)
           MaxRecords: 1
           ↓
         SendEmail: ResetPassword
@@ -1221,77 +1263,153 @@ Client variable side effects: **None directly.** Caller (`UserProfile.SaveChange
 | `UserActions` | `SendChangeEmail` | Server `SendChangeEmail` | None |
 | `UserActions` | `UpdateUser` | Server `UpdateUser` | None (caller writes on success) |
 
-#### Check{App}Role client action
-
-**`Check{App}Role()`** → `HasRole: Boolean` — thin wrapper around the `{App}` role's own generated
-boolean check function (custom Roles are directly callable as expressions, e.g. `{App}()` returns
-whether the current user holds it). Used by `Login.LoginOnClick` right after a successful `DoLogin`
-to decide between redirecting home and showing "No permissions." + `DoLogout`.
-
-This action has no `(System)`/external dependency and does not depend on any `Batch-5` action — the
-role exists from Batch 1. Wire it for real in Batch 3 alongside `LoginOnClick`; don't defer it just
-because `DoLogin`/`DoLogout` in the same action are deferred.
-
 ### 11. Email Templates (in Emails flow)
 
-- **`ResetPassword`** — input params `CustomerEmail`, `VerificationCode`,
-  `ApplicationName`, `CustomerName`. Theme: `EmailTheme`. Content:
-  password reset instructions with the verification code.
-- **`ChangeEmail`** — input params `CustomerEmail`, `VerificationCode`,
-  `ApplicationName`, `CustomerName`. Theme: `EmailTheme`. Content: email
-  change verification instructions.
+Both templates share the same four input parameters (none mandatory):
 
-Setting each template's own `Theme` to `EmailTheme` is necessary but not
-sufficient — also confirm the `Emails` flow's own `Theme` property is
-`EmailTheme` (see section 2's `EmailTheme` note); the "theme larger than
-14KB" validation warning is keyed to the flow-level theme, not the
-per-template one.
+| Parameter | Type |
+|---|---|
+| `ApplicationName` | Text |
+| `CustomerName` | Text |
+| `CustomerEmail` | Email |
+| `VerificationCode` | Text |
+
+- **`ResetPassword`**
+  - **Subject:** `"Password Reset for " + ApplicationName`
+  - **Content:** logo + `ApplicationName` expression; personalized greeting
+    (`"Hi " + CustomerName + "!"` or `"Hi!"` if name empty); reset
+    instructions message; `VerificationCode` expression (heading2) + expiry
+    note ("expires in 1 hour"); CTA button → `RecoverPasswordReset` screen
+    passing `VerificationCode` and `CustomerEmail`; sign-off (`"Thanks, Admin"`);
+    copyright (`"© " + Year(CurrDate()) + " " + ApplicationName + ". All Rights Reserved."`).
+  - **Theme:** inherited from the `Emails` flow (no explicit template-level
+    theme set in the OML — the flow's `Theme = EmailTheme` covers this).
+
+- **`ChangeEmail`**
+  - **Subject:** `ApplicationName + ": verification code " + VerificationCode`
+  - **Content:** same outer structure as `ResetPassword`; email-change
+    instructions message; `VerificationCode` expression (heading2, centered)
+    + expiry note; **no CTA button** (code is displayed inline only); sign-off
+    (`"Thank you, Admin"`); copyright (same expression as `ResetPassword`).
+  - **Theme:** same — inherited from `Emails` flow, no explicit template-level theme.
+
+The `Emails` flow's own `Theme` property must be `EmailTheme` (see section
+2's `EmailTheme` note) — the "theme larger than 14KB" validation warning
+is keyed to the flow-level theme, not per-template. The templates themselves
+do not need an explicit `Theme` property set; they inherit it from the flow.
 
 ### 12. External Sites (in Common flow)
 
 - **`RedirectToURL`** — client-side URL redirect, used throughout the
   app. Input parameter: `URL` (Text).
 
-### 13. OnException Handler (in Common flow)
+### 13. App-Level Exception Handler
 
-The app-wide exception handler — set as the app's exception flow/action,
-lives in Common. Four branches, each its own `ExceptionHandler` node:
+**Do not create a global app-level exception handler.** The reference
+implementation (NewApp) has no flow-level or app-level `OnException`
+configured — a Mentor OML inspection confirmed there are no global event
+handlers defined in the Common flow or anywhere in the application.
+Exception handling is done locally: each screen action and server action
+that performs operations has its own per-action `AllExceptions` exception
+handler node (see `rules/error-handling.md` for the server-action pattern).
 
-- **Security Exception** (`AbortTransaction: true`, `LogError: false`) —
-  checks `GetUserId() <> NullTextIdentifier()`:
-  - Logged in → redirect to `InvalidPermissions`
-  - Not logged in → save current URL to `Client.LastURL` (via
-    `GetBookmarkableURL()`), then redirect to `Login`
-- **Database Exception** (`AbortTransaction: true`, `LogError: true`) —
-  show error message *"There was a problem with the database request.
-  Please contact the administrator"*, then `End`
-- **Communication Exception** (`AbortTransaction: true`, `LogError: true`)
-  — show error message *"There was a problem communicating with the
-  server. Please try again or contact your administrator"*, then `End`.
-  Comment on this branch: fires on no internet connection or server
-  timeout.
-- **All Exceptions** (catch-all, `AbortTransaction: true`, `LogError:
-  true`) — show generic error message *"There was a problem. Please
-  contact the administrator"*, then `End`
-
-Order matters: the specific handlers (Security, Database, Communication)
-must be checked before the All Exceptions catch-all — a catch-all placed
-first would swallow the specific branches before they ever fire.
+A prior skill version included a Batch 7 that created a 4-branch app-wide
+handler (Security, Database, Communication, All Exceptions) and registered
+it as the app's exception flow. This was removed when the reference
+implementation was confirmed to have no such handler. Do not recreate it.
 
 ## Required References
 
 This baseline depends on assets outside the app itself — confirm they're
-referenced (not rebuilt):
+referenced (not rebuilt). Tell Mentor to add all references below before
+starting Batch 1; a missing reference causes expression-resolution failures
+mid-batch that are expensive to untangle later.
 
-- **`OutSystemsUI`** — theme, layout blocks, UI patterns, and utility
-  client actions (`LayoutReady`, `MenuReady`, `FeedbackMessageShow`,
-  `SetIconLibraryClass`, etc.)
-- **`(System)`** — system entity `User`; system server actions
-  `StartResetPassword`, `StartUpdateEmail`, `UpdateUserProfile`; system
-  client actions `Login`, `Logout`, `GetUserProfile`,
-  `IsBuiltinIdentityProviderActive`, `GetExternalIdentityProviders`,
-  `GetExternalLoginURL`, `GetExternalLogoutURL`, `FinishResetPassword`,
-  `FinishUpdateEmail`, `IsExternalUser`
+### Interface
+
+**Screens (all local, in the Common UI flow)**
+
+| Screen | Purpose |
+|---|---|
+| `Login` | User login |
+| `ChangePassword` | Change current password |
+| `RecoverPasswordRequest` | Initiate password recovery |
+| `RecoverPasswordReset` | Set new password after recovery |
+| `UserProfile` | View and edit user profile |
+| `InvalidPermissions` | Redirect target for insufficient permissions |
+
+**Web Blocks — Local (layout and navigation)**
+
+`LayoutBase`, `LayoutBaseSection`, `LayoutBlank`, `LayoutSideMenu`,
+`LayoutTopMenu` — layout building blocks; `Menu`, `MenuIcon` — navigation;
+`ApplicationTitle` — app title and logo; `UserInfo` — logged-in user
+display with logout.
+
+**Web Blocks — Referenced from `OutSystemsUI`**
+
+`AnimatedLabel`, `BlankSlate`, `ButtonLoading`, `Columns2`,
+`InputWithIcon`, `PasswordPolicy`, `Separator`, `UserAvatar`
+
+### Logic
+
+**Server Actions — Local**
+
+| Action | Folder | Purpose |
+|---|---|---|
+| `SendChangeEmail` | `UserActions` | Triggers email update flow |
+| `SendResetPasswordEmail` | `Authentication` | Triggers password reset flow |
+| `UpdateUser` | `UserActions` | Updates logged-in user's profile |
+
+**Server Actions — Referenced from `(System)`**
+
+`StartResetPassword`, `StartUpdateEmail`, `UpdateUserProfile`
+
+**Client Actions — Local**
+
+| Action | Folder | Purpose |
+|---|---|---|
+| `DoLogin` | `Authentication` | Login with username and password |
+| `DoLogout` | `Authentication` | Logout and redirect to home |
+| `SendChangeEmail` | `UserActions` | Client-side wrapper for email update |
+| `SendResetPasswordEmail` | `Authentication` | Client-side wrapper for password reset |
+| `UpdateUser` | `UserActions` | Client-side wrapper for profile update |
+
+**Client Actions — Referenced from `(System)` / `OutSystemsUI`**
+
+From `(System)`: `Login`, `Logout`, `ChangePassword`, `FinishResetPassword`,
+`FinishUpdateEmail`, `GetExternalIdentityProviders`, `GetExternalLoginURL`,
+`GetExternalLogoutURL`, `GetUserProfile`, `IsBuiltinIdentityProviderActive`,
+`IsExternalUser`
+
+From `OutSystemsUI`: `AddFavicon`, `SetLang`, `SetIconLibraryClass`,
+`LayoutReady`, `LayoutDestroy`, `MenuReady`, `MenuDestroy`,
+`SetActiveMenuItems`, `SetMenuIconListeners`, `SetMenuListeners`,
+`ToggleSideMenu`, `SkipToContent`, `FeedbackMessageClose`, `ShowPassword`
+
+### Data
+
+**Server Entities — Referenced from `(System)`**
+
+`User`, `Role`, `ActivityInstance`, `ProcessInstance`
+
+**Static Entities — Referenced from `OutSystemsUI`**
+
+`BreakColumns`, `Color`, `GutterSize`, `Shape`, `SideMenuBehavior`,
+`Size`, `Space`
+
+**Structures — Referenced from `(System)`**
+
+`UserLoginResult`, `UserLoginFailureReason`, `UpdateUserResult`,
+`UpdateUserFailureReason`, `UserUpdateInfo`, `UserInfo`,
+`ChangePasswordResult`, `ChangePasswordFailureReason`,
+`StartResetPasswordResult`, `FinishResetPasswordResult`,
+`FinishResetPasswordFailureReason`, `StartUpdateEmailResult`,
+`StartUpdateEmailFailureReason`, `FinishUpdateEmailResult`,
+`FinishUpdateEmailFailureReason`, `ExternalIdentityProvider`
+
+**Structures — Referenced from `OutSystemsUI`**
+
+`ErrorMessage_OSUI`
 
 ## Model API Patterns (confirmed, don't re-discover these)
 
@@ -1350,7 +1468,7 @@ it re-explore the API blind.
 
 Don't fire this as one giant Mentor call — batch it, same reasoning as
 `dbresults-odc-scaffold-entity`: smaller batches isolate failures faster,
-and this baseline is large (13 sub-layers). Suggested batching, each a
+and this baseline is large (12 sub-layers). Suggested batching, each a
 separate `mentor_start`/resumed-session turn, confirmed working before
 moving to the next:
 
@@ -1389,14 +1507,9 @@ moving to the next:
    `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, and
    `ExtendedClass = ""` on the instance; a blank argument here is a
    confirmed publish-time error (section 6), not just a style nit.
-5. **Server actions + client actions** (Authentication folder), including
-   `Check{App}Role` — wire ALL previously-stubbed screen logic from
-   batches 3 and 4, including UserProfile's.
+5. **Server actions + client actions** (Authentication and UserActions folders) — wire ALL previously-stubbed screen logic from batches 3 and 4, including UserProfile's. Do **NOT** create a `Check{App}Role`/`Has{App}Role` wrapper client action — the `{App}` role's built-in check function is used directly in `LoginOnClick` (see section 8, step 4).
 6. **Email templates + external site**.
-7. **OnException handler** (Common flow) — all four branches (Security,
-   Database, Communication, All Exceptions), then set it as the app's
-   exception handler.
-8. **Wiring Closure & Validation Sweep** — see below. Always run this as
+7. **Wiring Closure & Validation Sweep** — see below. Always run this as
    its own final batch, never skip it.
 
 Prompt each batch with the exact names, types, and logic from the
@@ -1487,14 +1600,15 @@ possible:
   Element". Don't spend a batch trying to make this specific warning
   disappear — confirm the assignment exists in the action's logic (that
   is the actual acceptance criterion), and if the warning is still
-  present after that, classify it in Batch 8 as a confirmed false
+  present after that, classify it in Batch 7 as a confirmed false
   positive rather than a fix-now item or a business-logic-not-ready
   item.
 
-## Wiring Closure & Validation Sweep (Batch 8)
+## Wiring Closure & Validation Sweep (Batch 7)
 
-Always run this as a final, dedicated batch after OnException — never
-treat "some warnings are expected at this stage" as a reason to skip it.
+Always run this as a final, dedicated batch after the email templates and
+external site batch — never treat "some warnings are expected at this
+stage" as a reason to skip it.
 A prior run assumed unresolved warnings would "clear once wired" without
 ever re-checking, and dozens survived all the way to publish.
 
@@ -1519,6 +1633,11 @@ ever re-checking, and dozens survived all the way to publish.
    - **Remove** — dead scaffolding that serves no purpose for this app;
      confirm with the user before deleting anything from the documented
      spec (sections 1–13 above) rather than silently trimming it.
+   - **Do NOT remove roles from anonymous screens** — all 6 screens have
+     the `{App}` role attached, including Login, RecoverPasswordRequest,
+     RecoverPasswordReset, and InvalidPermissions. Removing the role from
+     these screens is incorrect (see section 8). This is a known Batch 7
+     anti-pattern from TestNewWebApp6.
 3. Report the final classified list to the user: what was wired, what's
    expected-and-why, what (if anything) was removed. Don't report "0
    errors" as equivalent to "0 warnings" or as "done" — the two are
@@ -1562,7 +1681,7 @@ Have Mentor:
 ## Pre-Publish Structural Sanity Check
 
 Run this once, before the *first* publish attempt of the whole baseline —
-distinct from Batch 8's warning-classification sweep, because these are
+distinct from Batch 7's warning-classification sweep, because these are
 defects `GetValidationMessages` cannot see at all (they're not warnings;
 they're consistency issues in objects the validator doesn't cross-check
 against the build compiler's assumptions):
@@ -1621,11 +1740,9 @@ code to a known cause first:
   (`dbresults-odc-scaffold-entity`, `outsystems-spec-driven-build`, etc.).
   Set `IsDefaultScreen = true` on that first MainFlow screen at the time it
   is created.
-- **OnException is app-wide, not per-flow** — it lives in Common but is
-  registered as the whole app's exception handler, so it also covers
-  unhandled exceptions raised from MainFlow screens once those exist.
-  Specific handlers (Security/Database/Communication) must precede the
-  All Exceptions catch-all or they'll never fire.
+- **No global exception handler** — the reference implementation does not
+  configure a flow-level or app-level `OnException`. Exception handling is
+  done locally per-action (see `rules/error-handling.md` and section 13).
 
 ## Verification Checklist
 
@@ -1639,8 +1756,7 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `context_roles`: the confirmed application role exists
 - [ ] `context_screens`: 6 screens exist with correct
       `AnonymousAccess` flags and layouts
-- [ ] `context_actions`: 3 server actions + 6 client actions (including
-      `Check{App}Role`) exist in an `Authentication` folder
+- [ ] `context_actions`: 3 server actions + 5 client actions — server: `SendResetPasswordEmail` (Authentication), `SendChangeEmail` (UserActions), `UpdateUser` (UserActions); client: `DoLogin`, `DoLogout`, `SendResetPasswordEmail` (Authentication), `SendChangeEmail`, `UpdateUser` (UserActions). No `Check{App}Role`/`Has{App}Role` wrapper action.
 - [ ] Layout blocks and common blocks aren't directly enumerable via
       `context_actions`/`context_screens` in all tenants — if they don't
       surface there, confirm via Mentor's own OML inspection or Service
@@ -1651,9 +1767,8 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `MainFlow` exists and is empty (0 screens, 0 blocks, 0 exception
       handler) — confirm via Mentor/Service Studio, not just
       `context_screens` (an empty flow won't list anything to check)
-- [ ] `OnException` in Common has all 4 branches (Security, Database,
-      Communication, All Exceptions) in that precedence order, and is
-      registered as the app's exception handler
+- [ ] No global `OnException` handler exists — section 13 confirms the
+      reference implementation uses per-action exception handling only
 - [ ] 0 errors in validation after each batch before moving to the next
 - [ ] `eSpace.IsUserProvider` is `true` — no `ImplicitSelfUserProvider`
       warning
@@ -1666,11 +1781,13 @@ After each Mentor batch, confirm via the matching context tool:
       2.28.0, a tenant-level OutSystemsUI upgrade was requested before
       publish
 - [ ] `Login.LoginOnClick` implements the full flow from section 8: sets
-      `IsBuiltInExecuting`, validates the form, calls `DoLogin`, calls
-      `Check{App}Role` on success, branches to redirect /
-      "No permissions." + `DoLogout` / `DoLogin`'s own error message,
-      and has an exception handler that resets `IsBuiltInExecuting` and
-      clears `Password`
+      `IsBuiltInExecuting`, validates form → `FeedbackMessageClose` →
+      `DoLogin` → `Check{App}Role` (platform-generated `ExecuteClientAction`,
+      outputs `HasRole: Boolean`, runs unconditionally after `DoLogin`) →
+      `If DoLogin.Success` → (True) `If HasRole` → redirect to
+      `RedirectToURL` / "No permissions." + `DoLogout`; (False) show
+      `DoLogin.ErrorMessage`. Has an `AllExceptions` handler that clears
+      `Password` and `IsBuiltInExecuting`
 - [ ] `Login.LoginProviderOnClick` assigns `ExecutingIndex = ProviderIndex`
       as its first step, calls `GetExternalLoginURL`, redirects, and its
       exception handler resets both `IsBuiltInExecuting = False` and
@@ -1716,7 +1833,7 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `Menu` block has no `ActiveItem`/`ActiveSubItem` parameters at
       baseline (they're deferred until real menu items exist — see
       section 7)
-- [ ] After Batch 8 (Wiring Closure & Validation Sweep): 0 "Unused
+- [ ] After Batch 7 (Wiring Closure & Validation Sweep): 0 "Unused
       Action"/"Unused Element"/"Unused Local Variable"/"Unused Input
       Parameter"/"Unused Aggregate" warnings remain, other than ones
       explicitly classified as expected-at-baseline and reported to the

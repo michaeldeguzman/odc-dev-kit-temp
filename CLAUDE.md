@@ -112,6 +112,24 @@ New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp5
 
+### TestNewWebApp6 (`9ee7bc33-0108-4b8a-8556-2ce6a7e72c77`) — 2026-07-20
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (8-batch structure). Brand color `#1E88E5`, reused the auto-generated `TestNewWebApp6` role. Session resumed from a compacted prior context — Batch 3 retry was in-flight at compaction time.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Batches 1-8 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → Authentication+UserActions server+client actions + deferred wiring → email templates + RedirectToURL → OnException → validation sweep) | Rev 1 → 2 | 0 errors every batch; final sweep 0 errors, 8 expected-at-baseline warnings |
+| Batch 3 crash — Comment node as If-branch target | — | `UnrecoverableException: Cannot change the target node to TODO: ...`. Same pattern as TestNewWebApp5. Fix: retry with explicit no-comment-nodes-in-branch-positions rule. |
+| `HasTestNewWebApp6Role` (not `CheckTestNewWebApp6Role`) | — | `CheckTestNewWebApp6Role` is reserved by the platform for the auto-generated role function; wrapper named `HasTestNewWebApp6Role` to avoid collision |
+| No `PhotoUrl` on User entity | — | This tenant's `User` entity: `Id, Name, Username, IsActive, Email, Phone, ExternalId` — no `PhotoUrl`. `OldPhotoURL` always `""`, `Client.UserPhotoURL` never populated from User entity |
+| `ISendEmailNode` programmatic creation blocked | — | Sandbox throws internal exception regardless of template existence. `TryGetNameByEmail` aggregates and `ApplicationName` params correctly positioned in server actions; SendEmail nodes must be wired manually in ODC Studio for both `SendResetPasswordEmail` and `SendChangeEmail` |
+| `SetIconLibraryClass` unavailable | — | Same sandbox limitation — 4 Reminder nodes in layout block OnInitialize; needs manual wiring in ODC Studio |
+| `(System)` / OutSystemsUI reference hashes all-zero | — | Same sandbox limitation as TestNewWebApp3/4/5 — flagged but did not cause build failure |
+| Batch 8 fixes | — | `EmailTheme.IconLibrary` incorrectly cleared to empty string — restored to `Phosphor2.0`; anonymous screens had `TestNewWebApp6` role attached — removed |
+| Publish | — | `publish_start` reported `no_changes_detected: true` — Mentor auto-published during batches. Verified via `env_app`: revision 2, deployed 2026-07-20T13:50:20Z |
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp6
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
