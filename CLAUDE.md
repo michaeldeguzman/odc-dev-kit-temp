@@ -94,6 +94,24 @@ New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp4
 
+### TestNewWebApp5 (`9fa47a3a-20a2-4c84-8324-1d0348f857b6`) — 2026-07-20
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (8-batch structure). Brand color `#1E88E5`, reused the auto-generated `TestNewWebApp5` role. Session was resumed from a compacted prior context — Batch 4 was in-flight at compaction time.
+
+| Build | Notes |
+|---|---|
+| Batches 1-8 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → Authentication actions + screen wiring → email templates + RedirectToURL → OnException → validation sweep) | 0 errors every batch; final sweep 0 errors, 4 known-false-positive warnings (SetIconLibraryClass — all 4 layout blocks) |
+| Batch 3 crash — Comment node as If-branch target | `UnrecoverableException: Cannot change the target node to [comment text]`. Platform disallows comment nodes as If True/False branch targets. Full transaction rollback (clean state confirmed). Fix: remove all comment nodes from branch positions — omit deferred calls entirely rather than placeholder-comment them; Batch 5 inserts the real call between existing nodes. |
+| User entity confirmed attributes | `Id (Text), Name (Text), Email (Email), PhotoUrl (Text), Username (Text)` — this run has `PhotoUrl` (contrast with TestNewWebApp4 notes). `IsActive`/`Phone`/`ExternalId` absent. |
+| Platform system actions used | `Login`, `Logout` (auth); `UpdateUserProfile` (profile update); `StartResetPassword`, `StartUpdateEmail` (email flows) — names confirmed live from (System) reference during Batch 5 |
+| `CheckTestNewWebApp5Role2` | Platform auto-renamed the CheckTestNewWebApp5Role client action wrapper to avoid collision with the built-in role-check function — same pattern as TestNewWebApp4. Deleted in Batch 8 (Login uses the built-in function directly; wrapper was redundant) |
+| `DoLogout` — caller handles redirect | Client action clears vars but does not itself redirect; UserInfo.ClientLogout calls DoLogout then redirects to Login |
+| `SetIconLibraryClass` unavailable | Same sandbox limitation — 4 Reminder nodes in layout block OnInitialize; needs manual wiring in ODC Studio |
+| `(System)` / OutSystemsUI reference hashes all-zero | Same sandbox limitation as TestNewWebApp3/4 — flagged but did not cause build failure |
+| Publish | `publish_start` reported `no_changes_detected: true` — Mentor auto-published during batches. Verified via `env_app`: revision 2, deployed 2026-07-20T11:45:19Z |
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp5
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_

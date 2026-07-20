@@ -182,9 +182,69 @@ that already exist.
 
 | Name | Type | Purpose |
 |---|---|---|
-| `LastURL` | Text | Last visited URL (post-login redirect) |
-| `UserName` | Text | Logged-in user's display name |
-| `UserPhotoURL` | Text | Logged-in user's photo URL |
+| `LastURL` | Text | Last visited URL — used to redirect back after login |
+| `UserName` | Text | Display name of the logged-in user. Empty when not logged in. |
+| `UserPhotoURL` | Text | Photo URL of the logged-in user. Empty when not logged in. |
+
+**Usage map — where each variable is written and read:**
+
+**`Client.UserName`**
+
+| Where | Operation | Value |
+|---|---|---|
+| `UserInfo` → `GetUsernameAndPhoto` | Written | `GetUserProfile.UserInfo.Name` — fetched when `Client.UserName` is empty and user is logged in |
+| `UserProfile` → `SaveChangesOnClick` | Written | `GetUserDetails.List.Current.User.Name` — updated after successful profile save |
+| `DoLogout` | Written | `""` — cleared on logout |
+| `UserInfo` widget | Read | Displayed as the username link text and avatar title attribute |
+| `UserInfo` → `UserAvatar` block | Read | Passed as `Name` to show initials when no photo exists |
+
+**`Client.UserPhotoURL`**
+
+| Where | Operation | Value |
+|---|---|---|
+| `UserInfo` → `GetUsernameAndPhoto` | Written | `GetUserProfile.UserInfo.PhotoURL` — fetched when `Client.UserName` is empty and user is logged in |
+| `UserProfile` → `SaveChangesOnClick` | Written | `GetUserDetails.List.Current.User.PhotoUrl` — updated after successful profile save |
+| `DoLogout` | Written | `""` — cleared on logout |
+| `UserInfo` → `HasPhotoURL` If widget | Read | Condition: `Client.UserPhotoURL <> ""` — decides photo vs. initials avatar |
+| `UserInfo` → Image widget | Read | External image URL |
+
+**`Client.LastURL`**
+
+| Where | Operation | Value |
+|---|---|---|
+| `DoLogout` | Written | `""` — cleared on logout |
+| `Login` → `LoginOnClick` | Read | Redirect destination after successful login: `If(Client.LastURL = "", GetOwnerURLPath(), Client.LastURL)` |
+
+**Critical:** `Client.LastURL` has **no writer in the Common flow**. It is only cleared (on logout) and read (on login success). For post-login redirect to work for protected screens in `MainFlow`, each protected screen's `OnInitialize` must write `Client.LastURL = GetBookmarkableURL()` (or equivalent) before redirecting to `Login`. Without that, login always redirects to the app root.
+
+**How the three variables work together — lifecycle:**
+```
+User hits protected screen
+  → OnInitialize: (optional) Client.LastURL = GetBookmarkableURL()
+  → redirect to Login
+
+Login screen
+  → DoLogin / external provider succeeds
+  → redirect to Client.LastURL (or GetOwnerURLPath() if empty)
+  → clear Client.LastURL only on logout, not on use
+
+UserInfo renders
+  → OnReady → GetUsernameAndPhoto
+  → if Client.UserName = "": fetch system, write UserName + UserPhotoURL
+  → display name link + avatar
+
+UserProfile saves
+  → SaveChangesOnClick success: overwrite UserName + UserPhotoURL
+    (header updates immediately without page reload)
+
+Logout
+  → DoLogout: UserName = "", UserPhotoURL = "", LastURL = ""
+  → redirect to app root (built-in) or external logout URL
+```
+
+**Additional rules:**
+- `Client.UserName`/`Client.UserPhotoURL` are a **cache** — `GetUsernameAndPhoto` only fetches when `Client.UserName` is empty; it will not refresh if the name changes externally. `UserProfile` save explicitly overwrites to keep the header in sync.
+- `DoLogin`, `SendResetPasswordEmail`, `SendChangeEmail` — none touch any client variable. Pure auth/communication actions with no client-state side effects.
 
 ### 5. Local Images
 
@@ -206,32 +266,234 @@ impossible to get subtly wrong the way a PNG CRC can be.
 
 ### 6. Layout Blocks (in Layouts flow)
 
-- **`LayoutBlank`** — single `Content` placeholder. Lifecycle:
-  `OnInitialize` (calls `SetIconLibraryClass`), `OnReady` (calls
-  `LayoutReady`, `SetLang`, `AddFavicon`), `OnDestroy` (calls
-  `LayoutDestroy`). Parameters: `EnableAccessibilityFeatures` (Boolean),
-  `ExtendedClass` (Text).
-- **`LayoutTopMenu`** — placeholders: `Header`, `Breadcrumbs`, `Title`,
-  `Actions`, `MainContent`, `Footer`. Embeds `MenuIcon`,
-  `ApplicationTitle`, `Menu` blocks in the header. Lifecycle: same as
-  `LayoutBlank` plus a `SkipToContentOnClick` screen action. Parameters:
-  `HasFixedHeader` (Boolean, default True), `EnableAccessibilityFeatures`,
-  `ExtendedClass`.
-- **`LayoutSideMenu`** — same placeholders as `LayoutTopMenu` plus a
-  `Navigation` placeholder in an `<aside>` element. Parameters:
-  `HasFixedHeader`, `MenuBehavior` (`SideMenuBehavior` identifier),
-  `EnableAccessibilityFeatures`, `ExtendedClass`. Same lifecycle as
-  `LayoutTopMenu`.
-- **`LayoutBase`** — utility layout for fully custom page structures.
-  Parameters: `HasFixedHeader` (Boolean, default True),
-  `EnableAccessibilityFeatures`, `ExtendedClass` — same three as
-  `LayoutTopMenu`.
-- **`LayoutBaseSection`** — a section utility used inside `LayoutBase`
-  custom structures. Parameters: `BackgroundColor` (Color identifier),
-  `Padding` (Space identifier), `ExtendedClass` (Text). Unlike the other
-  blocks' parameters, `BackgroundColor`/`Padding` bind directly to the
-  section widget's own native style properties (not a CSS-class
-  expression) — that binding is what "consumes" them.
+All five layout blocks share the same lifecycle pattern: `OnInitialize` → `SetIconLibraryClass`, `OnReady` → `LayoutReady` + `SetLang` + `AddFavicon("favicon.png")`, `OnDestroy` → `LayoutDestroy`. These are OutSystems UI framework hooks — never remove them. `LayoutBaseSection` is the exception: it has no lifecycle actions at all.
+
+**Note on TestProbe web blocks:** OutSystemsUI ships TestProbe blocks as public elements. They will appear in ODC Studio's Manage Dependencies browser for any app that references OutSystemsUI (i.e., every app using this baseline). They are internal to the library — the skill does not create them and they require no action.
+
+#### LayoutBlank
+
+Minimal full-page layout with no header or menu. Use for login, splash, and full-custom screens.
+
+**Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `EnableAccessibilityFeatures` | Boolean | False | Enables focus states, skip-to-content, accessible links, and enhanced contrasts via the `has-accessible-features` CSS class. |
+| `ExtendedClass` | Text | `""` | Extra CSS classes appended to the root container. |
+
+**Placeholders**
+
+| Placeholder | CSS Class | Purpose |
+|---|---|---|
+| `Content` | `main-content` | The entire screen content. |
+
+**Client Actions**
+
+| Action | Trigger | Logic |
+|---|---|---|
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
+| `OnDestroy` | On removal | Calls `LayoutDestroy`. |
+
+**Widget Structure**
+```
+Container [layout-blank + has-accessible-features? + ExtendedClass]
+  └── Container [content, role="main"]
+        └── Placeholder: Content [main-content]
+```
+
+#### LayoutTopMenu
+
+Header with top navigation. Most common layout for apps with few menu items.
+
+**Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `HasFixedHeader` | Boolean | True | Sticks the header to the top on scroll. |
+| `EnableAccessibilityFeatures` | Boolean | False | Same as LayoutBlank. |
+| `ExtendedClass` | Text | `""` | Extra CSS classes on the root container. |
+
+**Placeholders**
+
+| Placeholder | CSS Class | Purpose |
+|---|---|---|
+| `Header` | `header-navigation` | Navigation links area inside the header bar (next to the app title). |
+| `Breadcrumbs` | `content-breadcrumbs` | Optional breadcrumb trail above the page title. Hidden when empty. |
+| `Title` | `content-top-title heading1` | Page title / heading. Hidden when empty. |
+| `Actions` | `content-top-actions` | Action buttons (e.g. "New", "Export") top-right of content. Hidden when empty. |
+| `MainContent` | `content-middle` | Primary screen content. |
+| `Footer` | `footer ThemeGrid_Container` | Footer area. Hidden when empty. |
+
+**Client Actions**
+
+| Action | Trigger | Logic |
+|---|---|---|
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
+| `OnDestroy` | On removal | Calls `LayoutDestroy`. |
+| `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
+
+**Widget Structure**
+```
+Container: LayoutWrapper [layout layout-top + fixed-header? + has-accessible-features? + ExtendedClass]
+  └── Container [main]
+        ├── AdvancedHtml <header> [role="banner", class="header"]
+        │     ├── Link [skip-nav] → SkipToContentOnClick
+        │     └── Container [header-top ThemeGrid_Container]
+        │           └── Container [header-content display-flex]
+        │                 ├── Block: MenuIcon
+        │                 ├── Block: ApplicationTitle
+        │                 └── Placeholder: Header [header-navigation]
+        │                       └── Block: Menu (ActiveItem=null, ActiveSubItem=null)
+        └── Container: Content [content]
+              ├── Container: MainContentWrapper [main-content ThemeGrid_Container, role="main"]
+              │     ├── Placeholder: Breadcrumbs [content-breadcrumbs]
+              │     ├── Container [content-top display-flex align-items-center]
+              │     │     ├── Placeholder: Title [content-top-title heading1]
+              │     │     └── Placeholder: Actions [content-top-actions]
+              │     └── Placeholder: MainContent [content-middle]
+              └── AdvancedHtml <footer> [role="contentinfo", class="content-bottom"]
+                    └── Placeholder: Footer [footer ThemeGrid_Container]
+```
+
+#### LayoutSideMenu
+
+Side navigation panel + header. Best for apps with many menu items.
+
+**Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `HasFixedHeader` | Boolean | True | Sticks the header to the top on scroll. |
+| `MenuBehavior` | SideMenuBehavior Identifier | — | Controls side menu behavior (overlay, push, etc.). Values from the `SideMenuBehavior` static entity in OutSystems UI. |
+| `EnableAccessibilityFeatures` | Boolean | False | Same as LayoutBlank. |
+| `ExtendedClass` | Text | `""` | Extra CSS classes on the root container. |
+
+**Placeholders**
+
+| Placeholder | CSS Class | Purpose |
+|---|---|---|
+| `Navigation` | — | Side menu content (the Menu block goes here by default). |
+| `Header` | `header-navigation` | Extra items in the top header bar (right side). |
+| `Breadcrumbs` | `content-breadcrumbs` | Optional breadcrumb trail. Hidden when empty. |
+| `Title` | `content-top-title heading1` | Page title. Hidden when empty. |
+| `Actions` | `content-top-actions` | Action buttons top-right of content. Hidden when empty. |
+| `MainContent` | `content-middle` | Primary screen content. |
+| `Footer` | `footer ThemeGrid_Container` | Footer area. Hidden when empty. |
+
+**Client Actions**
+
+| Action | Trigger | Logic |
+|---|---|---|
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
+| `OnDestroy` | On removal | Calls `LayoutDestroy`. |
+| `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
+
+**Widget Structure**
+```
+Container: LayoutWrapper [layout layout-side + fixed-header? + MenuBehavior + has-accessible-features? + ExtendedClass]
+  ├── Link [skip-nav] → SkipToContentOnClick
+  ├── AdvancedHtml <aside> [role="complementary", class="aside-navigation"]
+  │     └── Placeholder: Navigation
+  │           └── Block: Menu (ActiveItem=null, ActiveSubItem=null)
+  └── Container [main]
+        ├── AdvancedHtml <header> [role="banner", class="header"]
+        │     └── Container [header-top ThemeGrid_Container]
+        │           └── Container [header-content display-flex]
+        │                 ├── Block: MenuIcon
+        │                 ├── Block: ApplicationTitle
+        │                 └── Placeholder: Header [header-navigation]
+        └── Container: Content [content]
+              ├── Container: MainContentWrapper [main-content ThemeGrid_Container, role="main"]
+              │     ├── Placeholder: Breadcrumbs [content-breadcrumbs]
+              │     ├── Container [content-top display-flex align-items-center]
+              │     │     ├── Placeholder: Title [content-top-title heading1]
+              │     │     └── Placeholder: Actions [content-top-actions]
+              │     └── Placeholder: MainContent [content-middle]
+              └── AdvancedHtml <footer> [role="contentinfo", class="content-bottom"]
+                    └── Placeholder: Footer [footer ThemeGrid_Container]
+```
+
+#### LayoutBase
+
+Fully custom layout shell — no menu or navigation built in. Use when composing a custom header/content structure.
+
+**Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `HasFixedHeader` | Boolean | True | Sticks the header to the top on scroll. |
+| `EnableAccessibilityFeatures` | Boolean | False | Same as LayoutBlank. |
+| `ExtendedClass` | Text | `""` | Extra CSS classes on the root container. |
+
+**Placeholders**
+
+| Placeholder | CSS Class | Purpose |
+|---|---|---|
+| `Header` | `header-navigation` | Navigation area inside the header bar. |
+| `MainContent` | `content-middle` | Primary screen content. By default contains a `LayoutBaseSection` instance. |
+
+**Client Actions**
+
+| Action | Trigger | Logic |
+|---|---|---|
+| `OnInitialize` | Before render | Calls `SetIconLibraryClass`. |
+| `OnReady` | After render | Calls `LayoutReady` → `SetLang` → `AddFavicon("favicon.png")`. |
+| `OnDestroy` | On removal | Calls `LayoutDestroy`. |
+| `SkipToContentOnClick` | "Skip to Content" link click | Calls `SkipToContent(TargetId: MainContentWrapper.Id)`. |
+
+**Widget Structure**
+```
+Container: LayoutWrapper [layout layout-blank + fixed-header? + has-accessible-features? + ExtendedClass]
+  └── Container [main]
+        ├── AdvancedHtml <header> [role="banner", class="header"]
+        │     ├── Link [skip-nav] → SkipToContentOnClick
+        │     └── Container [header-top ThemeGrid_Container]
+        │           └── Container [header-content display-flex]
+        │                 ├── Block: MenuIcon
+        │                 ├── Block: ApplicationTitle
+        │                 └── Placeholder: Header [header-navigation]
+        │                       └── Block: Menu (ActiveItem=null, ActiveSubItem=null)
+        └── Container: Content [content]
+              └── Container: MainContentWrapper [main-content, role="main"]
+                    └── Placeholder: MainContent [content-middle]
+                          └── Block: LayoutBaseSection (default instance)
+```
+
+#### LayoutBaseSection
+
+Full-width content section with optional background and padding. Used inside `LayoutBase`'s `MainContent` placeholder to build multi-section pages. Has no lifecycle actions.
+
+**Parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `BackgroundColor` | Color Identifier | — | Background color from the OutSystems UI `Color` static entity. |
+| `Padding` | Space Identifier | — | Vertical padding from the OutSystems UI `Space` static entity. |
+| `ExtendedClass` | Text | — | Extra CSS classes. |
+
+**Placeholders**
+
+| Placeholder | CSS Class | Purpose |
+|---|---|---|
+| `BackgroundImage` | `section-background` | Optional background image/media layer. Hidden when empty. |
+| `Content` | `section-content` | The section's main content. |
+
+**Widget Structure**
+```
+Container [full-width-section background-{Color} padding-y-{Space} ExtendedClass]
+  └── Container [ThemeGrid_Container]
+        ├── Placeholder: BackgroundImage [section-background]
+        └── Placeholder: Content [section-content]
+```
+
+**Key distinctions across all five blocks:**
+- `LayoutBlank` — no header, no menu; full-page custom (login, splash)
+- `LayoutTopMenu` / `LayoutSideMenu` — identical content placeholders (Breadcrumbs, Title, Actions, MainContent, Footer); differ only in where `Menu` lives (top header vs. side `<aside>`)
+- `LayoutBase` — no Title/Actions/Breadcrumbs/Footer placeholders; compose structure with `LayoutBaseSection` instances inside `MainContent`
+- `LayoutBaseSection` — no lifecycle actions; `BackgroundColor`/`Padding` bind to native widget style properties, not CSS class expressions
 
 **Every parameter above must be bound to a real widget property on the
 block's own root/wrapper container — not just declared and left for a
@@ -309,37 +571,115 @@ a spec/design build) places them.
 
 ### 7. Common Blocks (in Common flow)
 
-- **`ApplicationTitle`** — displays app logo + app name (via
-  `GetAppName()`). `ApplicationNameOnClick` screen action redirects to
-  `GetOwnerURLPath()`.
-- **`MenuIcon`** — clickable hamburger icon to open/close the side menu
-  on small screens.
-- **`Menu`** — navigation block with a `PageLinks` container (menu item
-  links) and a `LoginInfo` container (embeds `UserInfo`). Lifecycle:
-  `OnReady` (calls `MenuReady`, `SetActiveMenuItems`), `OnParametersChanged`
-  (calls `SetMenuListeners`), `OnDestroy` (calls `MenuDestroy`).
-  `HideMenu` screen action calls `ToggleSideMenu`. **Do not add
-  `ActiveItem`/`ActiveSubItem` parameters at baseline stage** — unlike the
-  layout parameters above, these have no real container to bind to yet
-  (`PageLinks` has zero items until real navigation links exist, and
-  `MainFlow` is intentionally empty — see Key Patterns), so declaring them
-  now only produces an unfixable "Unused Element" warning that sits there
-  until business screens exist. Add them later, at the same time real
-  menu item links are added to `PageLinks` (`dbresults-odc-scaffold-entity`
-  or a spec/design build), when there's finally something to bind them to.
-  **When that later work does add `ActiveItem`/`ActiveSubItem`** (default
-  `-1` each, matching the same "no active item" convention as
-  `ExecutingIndex`), the same call-site rule from section 6 applies to
-  every place a `Menu` instance is embedded (`LayoutTopMenu`'s and
-  `LayoutSideMenu`'s header) — explicitly pass `ActiveItem`/`ActiveSubItem`
-  arguments (either `-1` or a real computed current-page index), don't
-  leave them blank on the instance.
-- **`UserInfo`** — shows logged-in user avatar + name (link to
-  `UserProfile`) + logout icon; shows a login link if not logged in.
-  `ClientLogout` screen action calls `DoLogout` then redirects.
-  `GetUsernameAndPhoto` screen action calls `GetUserProfile`, assigns
-  `Client.UserName` and `Client.UserPhotoURL`. `OnReady` calls
-  `GetUsernameAndPhoto`.
+#### ApplicationTitle
+
+Displays the app logo and name. Clicking it navigates to the app home.
+
+**Input Parameters:** None.
+
+| Client Action | Trigger | Logic |
+|---|---|---|
+| `ApplicationNameOnClick` | onclick on wrapper container | Navigates to `RedirectToURL` with `GetOwnerURLPath()` — the app root. |
+
+**Widget Structure:**
+```
+Container: ApplicationTitleWrapper [application-name display-flex align-items-center full-height]
+  (role="button", tabindex="0", onclick → ApplicationNameOnClick)
+  ├── Image: AppLogo [app-logo] — static Logo image, height 32px, alt=""
+  └── Expression — GetAppName()
+```
+
+#### MenuIcon
+
+Hamburger icon button that opens/closes the side menu on small screens.
+
+**Input Parameters:** None.
+
+| Client Action | Trigger | Logic |
+|---|---|---|
+| `OnReady` | After first render + on parameter change | Calls `SetMenuIconListeners` (OutSystems UI). |
+| `OnClick` | onclick on icon container | Calls `ToggleSideMenu`. |
+
+**Widget Structure:**
+```
+Container [menu-icon, role="button", tabindex="0", aria-label="Toggle the Menu", aria-haspopup="true"]
+  (onclick → OnClick)
+  └── Icon: list (regular weight, aria-hidden="true")
+```
+
+#### Menu
+
+Top/side navigation bar. Contains page links and the `UserInfo` block.
+
+**Input Parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `ActiveItem` | Integer | -1 | Index of the menu item to highlight as active. -1 = none. |
+| `ActiveSubItem` | Integer | -1 | Index of the submenu item to highlight. -1 = none. |
+
+**Do not add `ActiveItem`/`ActiveSubItem` parameters at baseline stage** — there are no real menu links yet
+(`PageLinks` is empty, `MainFlow` is intentionally empty), so declaring them now produces an unfixable
+"Unused Element" warning until business screens exist. Add them at the same time real menu items are
+added to `PageLinks` (via `dbresults-odc-scaffold-entity` or a spec/design build).
+
+**When that later work does add `ActiveItem`/`ActiveSubItem`** (default `-1` each), the call-site rule from
+section 6 applies to every `Menu` instance embedded in `LayoutTopMenu`/`LayoutSideMenu` — explicitly pass
+`ActiveItem`/`ActiveSubItem` arguments (either `-1` or a computed current-page index); never leave them blank.
+
+| Client Action | Trigger | Logic |
+|---|---|---|
+| `OnReady` | After first render | Calls `MenuReady` → `SetActiveMenuItems(ActiveItem, ActiveSubItem)`. |
+| `OnParametersChanged` | On parameter change | Re-runs `SetMenuListeners`. |
+| `OnDestroy` | On removal | Calls `MenuDestroy` (OutSystems UI cleanup). |
+| `HideMenu` | onclick on overlay | Calls `ToggleSideMenu` to close the side menu. |
+
+**Widget Structure:**
+```
+AdvancedHtml <nav> [class="app-menu-content display-flex", role="navigation", aria-label="Main navigation"]
+  ├── Container [header-logo] — hidden (If condition = False)
+  │     └── If (False) → FalseBranch: Block: ApplicationTitle
+  ├── Container: PageLinks [app-menu-links, role="menubar"]
+  │     (← navigation Links/Submenus added as children here)
+  └── Container: LoginInfo [app-login-info]
+        └── Block: UserInfo
+
+Container [app-menu-overlay, role="button", onclick → HideMenu]
+  (dark overlay that closes the side menu when clicked outside it)
+```
+
+#### UserInfo
+
+Shows the logged-in user's avatar and name (link to `UserProfile`) + logout button. Shows a login link
+when not logged in.
+
+**Input Parameters:** None.
+
+| Client Action | Trigger | Logic |
+|---|---|---|
+| `OnReady` | After first render | Calls `GetUsernameAndPhoto`. |
+| `GetUsernameAndPhoto` | Called by `OnReady` | If `Client.UserName` is empty and user is logged in, calls system `GetUserProfile` and assigns `Client.UserName` and `Client.UserPhotoURL`. |
+| `ClientLogout` | Logout link click | Calls `DoLogout` → navigates to `DoLogout.RedirectURL` (fade transition). |
+
+**Widget Structure:**
+```
+Container [user-info]
+  └── If: UserIsLogged (GetUserId() <> NullTextIdentifier())
+        ├── TrueBranch (logged in):
+        │     ├── Container
+        │     │     └── If: HasPhotoURL (Client.UserPhotoURL <> "")
+        │     │           ├── True: Image [avatar avatar-small border-radius-rounded] — External URL: Client.UserPhotoURL
+        │     │           └── False: Block: UserAvatar (Name=Client.UserName, Size=Small)
+        │     └── Container [margin-left-s]
+        │           └── Link → UserProfile screen
+        │                 └── Expression: Client.UserName
+        └── FalseBranch (not logged in):
+              └── Container [margin-left-s]
+                    └── Link [sign-in icon + "Login" text] → Login screen (fade)
+
+Container [margin-left-s] (logout — shown when logged in)
+  └── Link [sign-out icon + "Log out" text] → ClientLogout (fade)
+```
 
 ### 8. Screens (in Common flow)
 
@@ -441,19 +781,91 @@ screen spec below doesn't repeat the values inline.
   — so wire that branch for real in Batch 3; don't defer it just because
   it sits in the same action as two calls that must be deferred.
 - **`RecoverPasswordRequest`** — `AnonymousAccess = true`, layout
-  `LayoutBlank`. Local vars: `IsExecuting`, `Email`. Screen action
-  `ResetPasswordOnClick` — validate form, call `SendResetPasswordEmail`
-  client action, navigate to `RecoverPasswordReset`. UI: email input,
-  "Reset password" button, "Go to login" link.
+  `LayoutBlank`. Local vars: `IsExecuting` (Boolean, False), `Email`
+  (Email). Screen actions:
+
+  | Action | Trigger | Logic |
+  |---|---|---|
+  | `ResetPasswordOnClick` | "Reset password" button | Validates form → sets `IsExecuting = True` → calls `SendResetPasswordEmail(Email)` → on success navigates to `RecoverPasswordReset(Email)`. On failure shows error message. |
+
+  UI: logo, "Forgot your password?" heading, email input, "Reset password"
+  button (`IsExecuting` for loading state), "Go to login" link → `Login`.
+
 - **`RecoverPasswordReset`** — `AnonymousAccess = true`, layout
-  `LayoutBlank`. Input parameters: `Email`, `VerificationCode` (Text).
-  Handles step 2 of password reset: verification code + new password,
-  calls `FinishResetPassword`.
-- **`ChangePassword`** — requires login, layout `LayoutBlank`. Lets
-  logged-in users change their password via the `ChangePassword` system
-  client action.
-- **`InvalidPermissions`** — `AnonymousAccess = true`, layout
-  `LayoutBlank`. Shown when a user lacks the required role.
+  `LayoutBlank`. Input parameters: `Email` (Email, mandatory), `VerificationCode`
+  (Text, optional — pre-filled if passed from the request screen). Local vars:
+
+  | Variable | Type | Default | Purpose |
+  |---|---|---|---|
+  | `NewPassword` | Text | — | Bound to new password input. |
+  | `ConfirmPassword` | Text | — | Bound to confirm password input. |
+  | `IsPasswordVisible` | Boolean | False | Toggles new password visibility. |
+  | `IsConfirmPasswordVisible` | Boolean | False | Toggles confirm password visibility. |
+  | `IsButtonEnabled` | Boolean | False | Enables/disables the submit button. |
+  | `IsExecuting` | Boolean | False | Loading state. |
+  | `IsNewPasswordCompliant` | Boolean | — | Set by the `PasswordPolicy` block `Compliant` event. |
+
+  Screen actions:
+
+  | Action | Trigger | Logic |
+  |---|---|---|
+  | `SetIsButtonEnabled` | Called by input change handlers | Checks all fields non-empty + `IsNewPasswordCompliant` → sets `IsButtonEnabled`. |
+  | `Input_CodeOnChange` | Verification code input change | Calls `SetIsButtonEnabled`; clears validation errors if field is empty. |
+  | `Input_ConfirmPasswordOnChange` | Confirm password change | Calls `SetIsButtonEnabled`; clears validation errors if field is empty. |
+  | `PasswordPolicyCompliant` | `PasswordPolicy` block `Compliant` event | Sets `IsNewPasswordCompliant = IsValid` → calls `SetIsButtonEnabled`. |
+  | `OnToggleNewPasswordVisibility` | Eye icon on new password | Toggles `IsPasswordVisible` → calls `ShowPassword(Input_NewPassword.Id)`. |
+  | `OnToggleConfirmPasswordVisibility` | Eye icon on confirm password | Toggles `IsConfirmPasswordVisible` → calls `ShowPassword(Input_ConfirmPassword.Id)`. |
+  | `SavePasswordOnClick` | "Save password" button | Validates form + passwords match → calls `FinishResetPassword(Email, NewPassword, VerificationCode)` → on success calls `DoLogin(Email, NewPassword)` → redirects to app root or `Login`. Handles complexity/invalid code errors. |
+
+  UI: logo, "Reset password" heading, email input (disabled), verification
+  code input, new password input + `PasswordPolicy` block, confirm password
+  input, "Save password" button, "Go to login" link.
+
+- **`ChangePassword`** — requires login, layout `LayoutTopMenu` (`HasFixedHeader = True`,
+  `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). Aggregate:
+  `GetUserDetail` (filters `User.Id = GetUserId()`, `MaxRecords = 1`) — fetches
+  current user's email used as the username in the system `ChangePassword` call.
+  Local vars:
+
+  | Variable | Type | Default | Purpose |
+  |---|---|---|---|
+  | `OldPassword` | Text | — | Current password input. |
+  | `NewPassword` | Text | — | New password input. |
+  | `ConfirmPassword` | Text | — | Confirm new password input. |
+  | `IsPasswordVisible` | Boolean | False | Toggles new password visibility. |
+  | `IsConfirmPasswordVisible` | Boolean | False | Toggles confirm password visibility. |
+  | `IsButtonEnabled` | Boolean | False | Enables/disables the submit button. |
+  | `IsExecuting` | Boolean | False | Loading state. |
+  | `IsNewPasswordCompliant` | Boolean | — | Set by the `PasswordPolicy` block `Compliant` event. |
+
+  Screen actions:
+
+  | Action | Trigger | Logic |
+  |---|---|---|
+  | `OnInitialize` | Screen init | If `IsExternalUser()` → redirect to `InvalidPermissions` (external users can't change password via this form). |
+  | `SetIsButtonEnabled` | Called by input change handlers | Checks `OldPassword`, `NewPassword`, `IsNewPasswordCompliant`, `ConfirmPassword` all non-empty → sets `IsButtonEnabled`. |
+  | `Input_OldPasswordOnChange` | Old password change | Calls `SetIsButtonEnabled`. |
+  | `Input_ConfirmPasswordOnChange` | Confirm password change | Calls `SetIsButtonEnabled`; clears validation errors if field is empty. |
+  | `PasswordPolicyCompliant` | `PasswordPolicy` block `Compliant` event | Sets `IsNewPasswordCompliant = IsValid` → calls `SetIsButtonEnabled`. |
+  | `OnToggleNewPasswordVisibility` | Eye icon on new password | Toggles `IsPasswordVisible` → calls `ShowPassword(Input_NewPassword.Id)`. |
+  | `OnToggleConfirmPasswordVisibility` | Eye icon on confirm password | Toggles `IsConfirmPasswordVisible` → calls `ShowPassword(Input_ConfirmPassword.Id)`. |
+  | `SetNewPasswordOnClick` | "Set new password" button | Validates form + passwords match → calls system `ChangePassword(OldPassword, NewPassword, User.Email)` → on success shows message and navigates to `UserProfile`. Handles invalid credentials, complexity failure, and too-many-attempts errors. |
+
+  Layout: `Breadcrumbs` placeholder has "← Back to profile" link → `UserProfile`.
+  `Title` = "Change your password". `MainContent` has a `Columns2` block with the
+  form in `Column1` (old password, new password + `PasswordPolicy` block, confirm
+  password, "Set new password" button).
+
+- **`InvalidPermissions`** — `AnonymousAccess = true`, layout `LayoutTopMenu`
+  (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`).
+  No local variables, no aggregates, no screen actions. `MainContent` contains
+  a `BlankSlate` block (full height) with:
+  - Icon: lock
+  - Text: "You don't have the necessary permission to see this screen."
+  - Sub-text: "Please contact your system administrator."
+  - Actions: If user is not logged in → "Go to login" link → `Login` screen.
+  `Header` placeholder contains a `UserInfo` block (right-aligned).
+
 - **`UserProfile`** — requires login, layout `LayoutTopMenu` with
   `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`,
   `ExtendedClass = ""` explicitly set on the instance (see section 6 —
@@ -471,44 +883,354 @@ screen spec below doesn't repeat the values inline.
   name input, photo URL input, email input, verification-code flow (get
   code → code input + resend countdown), save button.
 
-### 9. Server Actions (folder: Authentication)
+**Cross-Screen Navigation Map:**
+```
+Login ──────────────────────────────────────────────────────► App root (on success)
+  │                                                            ▲
+  └─► RecoverPasswordRequest ──► RecoverPasswordReset ─────────┘
+                                        │
+                                        └─► Login (on failure)
 
-- **`SendResetPasswordEmail(ApplicationName: Text, CustomerEmail: Email)`**
-  → `Success: Boolean` — calls system action `StartResetPassword`; on
-  success, queries user name and sends the `ResetPassword` email.
-- **`SendChangeEmail(ApplicationName: Text, CustomerEmail: Email)`** →
-  `Success: Boolean` — calls system action `StartUpdateEmail`, sends the
-  `ChangeEmail` email with a verification code.
-- **`UpdateUser(UserUpdateInfo: UserUpdateInfo)`** →
-  `UpdateUserResult: UpdateUserResult` — wraps the system server action
-  `UpdateUserProfile`.
+UserProfile ──► ChangePassword ──► UserProfile (on success)
+                     │
+                     └─► InvalidPermissions (if external user)
 
-### 10. Client Actions (folder: Authentication)
+InvalidPermissions ──► Login (if not logged in)
+```
 
-- **`DoLogin(Username: Text, Password: Text)`** → `Success: Boolean`,
-  `ErrorMessage: Text` — calls system action `Login`, maps failure
-  reasons to human-readable messages.
-- **`DoLogout()`** → `RedirectURL: Text` — checks external user →
-  `GetExternalLogoutURL` or `Logout`; clears `Client.UserName`,
-  `Client.UserPhotoURL`, `Client.LastURL`.
-- **`SendResetPasswordEmail(CustomerEmail: Email)`** → `Success: Boolean`
-  — calls the server action of the same name with `GetAppName()`.
-- **`SendChangeEmail(CustomerEmail: Email)`** → `Success: Boolean` —
-  calls the server action of the same name with `GetAppName()`.
-- **`UpdateUser(UserUpdateInfo: UserUpdateInfo)`** →
-  `UpdateUserResult: UpdateUserResult` — calls the server action.
-- **`Check{App}Role()`** → `HasRole: Boolean` — thin wrapper around the
-  `{App}` role's own generated boolean check function (custom Roles are
-  directly callable as expressions, e.g. `{App}()` returns whether the
-  current user holds it). Used by `Login.LoginOnClick` (section 8) right
-  after a successful `DoLogin` to decide between redirecting home and
-  showing "No permissions." + `DoLogout`. This does not depend on any
-  other Batch-5 action and has no `(System)`/external dependency, so it
-  can be created and wired in this batch even though the rest of
-  `LoginOnClick`'s role-check branch was already wired for real back in
-  Batch 3 (the role itself exists from Batch 1) — just confirm this
-  action exists by the time Batch 5 wires `DoLogin`/`DoLogout` into the
-  same screen action.
+### 9. Server Actions
+
+Folder structure:
+```
+Server Actions
+├── Authentication
+│   └── SendResetPasswordEmail
+└── UserActions
+    ├── SendChangeEmail
+    └── UpdateUser
+```
+
+#### Authentication folder
+
+**`SendResetPasswordEmail(ApplicationName: Text, CustomerEmail: Email)`** → `Success: Boolean`
+
+Triggers the reset-password flow for users who don't have ODC Portal access. Calls system `StartResetPassword`, looks up the user's name, and sends the `ResetPassword` email with the verification code.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `ApplicationName` | Text (in) | Name of the app. Passed automatically by the client action wrapper via `GetAppName()`. |
+| `CustomerEmail` | Email (in) | The email address to send the reset code to. |
+| `Success` | Boolean (out) | True if the email was sent. |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: StartResetPassword(Email = CustomerEmail)   [system]
+  ↓
+If: StartResetPassword.StartResetPasswordResult.Success
+    AND Length(VerificationCode) > 0
+  ├── False →
+  │     Assign: Success = True   ← "Fake success" (security: don't reveal whether email exists)
+  │     End
+  └── True →
+        Aggregate: TryGetNameByEmail
+          Source: User
+          Filter: User.Email = CustomerEmail
+          MaxRecords: 1
+          ↓
+        SendEmail: ResetPassword
+          To:               CustomerEmail
+          CustomerEmail:    CustomerEmail
+          VerificationCode: StartResetPassword.StartResetPasswordResult.VerificationCode
+          ApplicationName:  ApplicationName
+          CustomerName:     TryGetNameByEmail.List.Current.User.Name
+          ↓
+        Assign: Success = True
+          ↓
+        End
+
+── Exception Handler: AllExceptions ──
+  Assign: Success = False
+  End
+```
+
+**Key design notes:**
+- **Security by design:** When `StartResetPassword` returns no verification code (email doesn't exist, or belongs to an ODC Portal user), the action still returns `Success = True`. Prevents attackers from probing which emails are registered.
+- **ODC Portal users:** System `StartResetPassword` does not support Portal users — returns no code. The "fake success" branch handles this silently.
+- `TryGetNameByEmail` is used only to personalise the email. If no match, `CustomerName` is empty and the email still sends.
+
+#### UserActions folder
+
+**`SendChangeEmail(ApplicationName: Text, CustomerEmail: Email)`** → `Success: Boolean`
+
+Triggers the email-change flow for logged-in users who don't have ODC Portal access. Calls system `StartUpdateEmail`, looks up the user's name, and sends the `ChangeEmail` email with the verification code.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `ApplicationName` | Text (in) | Name of the app. Passed automatically by the client action wrapper via `GetAppName()`. |
+| `CustomerEmail` | Email (in) | The new email address to send the verification code to. |
+| `Success` | Boolean (out) | True if the email was sent. |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: StartUpdateEmail(Email = CustomerEmail)   [system]
+  ↓
+If: StartUpdateEmail.StartUpdateEmailResult.Success
+    AND Length(VerificationCode) > 0
+  ├── False →
+  │     Assign: Success = False
+  │     End
+  └── True →
+        Aggregate: TryGetNameByEmail
+          Source: User
+          Filter: User.Email = CustomerEmail
+          MaxRecords: 1
+          ↓
+        SendEmail: ChangeEmail
+          To:               CustomerEmail
+          CustomerEmail:    CustomerEmail
+          VerificationCode: StartUpdateEmail.StartUpdateEmailResult.VerificationCode
+          ApplicationName:  ApplicationName
+          CustomerName:     TryGetNameByEmail.List.Current.User.Name
+          ↓
+        Assign: Success = True
+          ↓
+        End
+
+── Exception Handler: AllExceptions ──
+  Assign: Success = False
+  End
+```
+
+**Key difference vs `SendResetPasswordEmail`:** The false branch returns `Success = False` — no fake success. Email-change is only reachable by an already-authenticated user actively editing their own profile; no need to obscure failure.
+
+---
+
+**`UpdateUser(UserUpdateInfo: UserUpdateInfo)`** → `UpdateUserResult: UpdateUserResult`
+
+Updates the logged-in user's profile (name and photo URL) by calling system `UpdateUserProfile`. Returns the full result structure including failure reasons.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `UserUpdateInfo` | `UserUpdateInfo` structure (in) | Contains `Name` (Text) and `PhotoURL` (Text). |
+| `UpdateUserResult` | `UpdateUserResult` structure (out) | Contains `Success` (Boolean), `UpdateUserFailureReason` (`InvalidCredentials`, `InvalidName`, `InvalidPhotoURL` flags), and `UserPhotoURL` (Text). |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: UpdateUserProfile(UserUpdateInfo = UserUpdateInfo)   [system]
+  ↓
+Assign: UpdateUserResult = UpdateUserProfile.UpdateUserResult
+  ↓
+End
+```
+
+**Key design notes:**
+- Thin pass-through — no branching, no exception handler. Any exception propagates to the client action wrapper (`UpdateUser` client action), which catches it and sets `Success = False`.
+- Caller (`UserProfile.SaveChangesOnClick`) inspects `UpdateUserResult.UpdateUserFailureReason` to show specific messages for invalid name, invalid credentials, or invalid photo URL.
+
+#### Quick reference
+
+| Folder | Action | System action called | Email sent | Exception handling |
+|---|---|---|---|---|
+| `Authentication` | `SendResetPasswordEmail` | `StartResetPassword` | `ResetPassword` email | Caught — returns `Success = False` |
+| `UserActions` | `SendChangeEmail` | `StartUpdateEmail` | `ChangeEmail` email | Caught — returns `Success = False` |
+| `UserActions` | `UpdateUser` | `UpdateUserProfile` | None | Propagates to client action wrapper |
+
+### 10. Client Actions
+
+Folder structure:
+```
+Client Actions
+├── Authentication
+│   ├── DoLogin
+│   ├── DoLogout
+│   └── SendResetPasswordEmail
+└── UserActions
+    ├── SendChangeEmail
+    └── UpdateUser
+```
+
+#### Authentication folder
+
+**`DoLogin(Username: Text, Password: Text)`** → `Success: Boolean`, `ErrorMessage: Text`
+
+Performs login via the built-in identity provider. Maps platform failure codes to human-readable messages.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `Username` | Text (in) | The user's login name (email). |
+| `Password` | Text (in) | The user's password. |
+| `Success` | Boolean (out) | True if login succeeded. |
+| `ErrorMessage` | Text (out) | Populated only on failure. |
+
+Logic:
+```
+Start
+  ↓
+ExecuteClientAction: Login(Username, Password)   [system]
+  ↓
+If: Login.UserLoginResult.Success
+  ├── True → Assign: Success = True → End
+  └── False →
+        If: InvalidCredentials
+          ├── True → Assign: ErrorMessage = "Invalid credentials." → End
+          └── False →
+                If: TooManyFailedLoginAttempts
+                  ├── True → Assign: ErrorMessage = "Too many failed login attempts. Please try again in " + RetryAfterSeconds + " seconds." → End
+                  └── False → Assign: ErrorMessage = "Login operation failed." → End
+```
+
+Client variable side effects: **None.** Caller (`Login.LoginOnClick`) handles redirect after success.
+
+---
+
+**`DoLogout()`** → `RedirectURL: Text`
+
+Logs the user out (built-in or external provider), clears all three client variables, and returns the URL to redirect to.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `RedirectURL` | Text (out) | URL to navigate to after logout. |
+
+Logic:
+```
+Start
+  ↓
+If: IsExternalUser()
+  ├── True →
+  │     ExecuteClientAction: GetExternalLogoutURL   [system]
+  │     Assign: RedirectURL = GetExternalLogoutURL.ExternalLogoutURL
+  │     → (merge) →
+  └── False →
+        ExecuteClientAction: Logout   [system]
+        Assign: RedirectURL = GetOwnerURLPath()
+        → (merge) →
+
+Assign:
+  Client.UserName     = ""
+  Client.UserPhotoURL = ""
+  Client.LastURL      = ""
+  ↓
+End
+```
+
+Client variable side effects: **Clears `Client.UserName`, `Client.UserPhotoURL`, `Client.LastURL`.** Both branches converge at the assign before `End`. Caller (`UserInfo.ClientLogout`) navigates to `RedirectURL` after this returns.
+
+---
+
+**`SendResetPasswordEmail(CustomerEmail: Email)`** → `Success: Boolean`
+
+Starts the password reset flow by calling the server action that triggers the verification email. Wraps the server call so it always returns `Success` rather than throwing.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `CustomerEmail` | Email (in) | The email address to send the reset code to. |
+| `Success` | Boolean (out) | True if the email was sent successfully. |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: SendResetPasswordEmail(
+    ApplicationName = GetAppName(),
+    CustomerEmail   = CustomerEmail
+  )
+  ↓
+Assign: Success = SendResetPasswordEmail.Success
+  ↓
+End
+
+── Exception Handler: AllExceptions ──
+  Assign: Success = False
+  End
+```
+
+Client variable side effects: **None.** `GetAppName()` injected automatically — caller passes only the email.
+
+#### UserActions folder
+
+**`SendChangeEmail(CustomerEmail: Email)`** → `Success: Boolean`
+
+Starts the email-change flow by calling the server action that triggers the verification email. Mirrors `SendResetPasswordEmail` in structure.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `CustomerEmail` | Email (in) | The new email address to send the verification code to. |
+| `Success` | Boolean (out) | True if the process was successfully started. |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: SendChangeEmail(
+    ApplicationName = GetAppName(),
+    CustomerEmail   = CustomerEmail
+  )
+  ↓
+Assign: Success = SendChangeEmail.Success
+  ↓
+End
+
+── Exception Handler: AllExceptions ──
+  Assign: Success = False
+  End
+```
+
+Client variable side effects: **None.** Server action calls system `StartUpdateEmail` internally. Called from `SendVerificationCode` on the `UserProfile` screen.
+
+---
+
+**`UpdateUser(UserUpdateInfo: UserUpdateInfo)`** → `UpdateUserResult: UpdateUserResult`
+
+Calls the server action to update the logged-in user's profile (name and photo URL). Catches exceptions and surfaces them as `Success = False` rather than propagating.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `UserUpdateInfo` | `UserUpdateInfo` structure (in) | Contains `Name` (Text) and `PhotoURL` (Text). |
+| `UpdateUserResult` | `UpdateUserResult` structure (out) | Contains `Success` (Boolean), `UpdateUserFailureReason` (with `InvalidCredentials`, `InvalidName`, `InvalidPhotoURL` flags), and `UserPhotoURL` (Text). |
+
+Logic:
+```
+Start
+  ↓
+ExecuteServerAction: UpdateUser(UserUpdateInfo = UserUpdateInfo)
+  ↓
+Assign: UpdateUserResult = UpdateUserProfile.UpdateUserResult
+  ↓
+End
+
+── Exception Handler: AllExceptions ──
+  Assign: UpdateUserResult.Success = False
+  End
+```
+
+Client variable side effects: **None directly.** Caller (`UserProfile.SaveChangesOnClick`) writes `Client.UserName` and `Client.UserPhotoURL` on success to keep the header in sync without a page reload.
+
+#### Quick reference
+
+| Folder | Action | Calls | Client variable side effects |
+|---|---|---|---|
+| `Authentication` | `DoLogin` | System `Login` | None |
+| `Authentication` | `DoLogout` | System `Logout` / `GetExternalLogoutURL` | Clears `UserName`, `UserPhotoURL`, `LastURL` |
+| `Authentication` | `SendResetPasswordEmail` | Server `SendResetPasswordEmail` | None |
+| `UserActions` | `SendChangeEmail` | Server `SendChangeEmail` | None |
+| `UserActions` | `UpdateUser` | Server `UpdateUser` | None (caller writes on success) |
+
+#### Check{App}Role client action
+
+**`Check{App}Role()`** → `HasRole: Boolean` — thin wrapper around the `{App}` role's own generated
+boolean check function (custom Roles are directly callable as expressions, e.g. `{App}()` returns
+whether the current user holds it). Used by `Login.LoginOnClick` right after a successful `DoLogin`
+to decide between redirecting home and showing "No permissions." + `DoLogout`.
+
+This action has no `(System)`/external dependency and does not depend on any `Batch-5` action — the
+role exists from Batch 1. Wire it for real in Batch 3 alongside `LoginOnClick`; don't defer it just
+because `DoLogin`/`DoLogout` in the same action are deferred.
 
 ### 11. Email Templates (in Emails flow)
 
