@@ -82,6 +82,38 @@
 
 ---
 
+### 7. Layout block parameters `IsMandatory=True` — HIGH
+
+**What was wrong:** All input parameters on all 5 Layouts flow web blocks (LayoutBlank, LayoutTopMenu, LayoutSideMenu, LayoutBase, LayoutBaseSection) were `IsMandatory=True` with no default values. This causes a hard error whenever a screen uses any of these layout blocks — the caller is required to supply every parameter explicitly.
+
+A prior fix session (Rev 3→5) claimed to set default values and was logged as resolved. A re-inspection of the deployed Rev 5 OML confirmed the changes never persisted — all parameters remained mandatory with no defaults.
+
+**Reference spec (confirmed from NewApp):** All parameters are `IsMandatory=False` with the following defaults set:
+
+| Block | Parameter | IsMandatory | Default |
+|---|---|---|---|
+| LayoutBlank | EnableAccessibilityFeatures | False | False |
+| LayoutBlank | ExtendedClass | False | `""` |
+| LayoutTopMenu | HasFixedHeader | False | True |
+| LayoutTopMenu | EnableAccessibilityFeatures | False | False |
+| LayoutTopMenu | ExtendedClass | False | `""` |
+| LayoutSideMenu | HasFixedHeader | False | True |
+| LayoutSideMenu | MenuBehavior | False | *(none)* |
+| LayoutSideMenu | EnableAccessibilityFeatures | False | False |
+| LayoutSideMenu | ExtendedClass | False | `""` |
+| LayoutBase | HasFixedHeader | False | True |
+| LayoutBase | EnableAccessibilityFeatures | False | False |
+| LayoutBase | ExtendedClass | False | `""` |
+| LayoutBaseSection | BackgroundColor | False | `""` |
+| LayoutBaseSection | Padding | False | `""` |
+| LayoutBaseSection | ExtendedClass | False | `""` |
+
+**SKILL.md fix:** Batch 2 prompt updated from "three things" to "four things". Added `IsMandatory=False` as the first explicit requirement. Corrected `EnableAccessibilityFeatures` default from "no default (leave unset)" to `False`.
+
+**TestNewWebApp7 fix:** All 14 parameters set `IsMandatory=False` with correct defaults in Rev 5→6. Verified via Mentor spot-check on LayoutBlank and LayoutTopMenu — OML confirmed `IsMandatory=False` and correct `DefaultValue` persisted.
+
+---
+
 ## SKILL.md Changes Summary
 
 File: `.claude/skills/dbresults-odc-new-app-baseline/SKILL.md`
@@ -96,28 +128,29 @@ File: `.claude/skills/dbresults-odc-new-app-baseline/SKILL.md`
 | `CreatedWithoutCustomCSS: "true"` added to `{App}` theme values | Section 2 |
 | `IsUserProvider` reference note added | Section 3 |
 | Login input Enabled binding corrected to `ExecutingIndex = -1 and not IsBuiltInExecuting` | Section 8 (Login) |
+| Batch 2 prompt: "three things" → "four things"; `IsMandatory=False` added as first requirement; `EnableAccessibilityFeatures` default corrected to `False` | Mentor Prompt Strategy (Batch 2) |
 
 ---
 
 ## TestNewWebApp7 Fixes Applied (2026-07-21)
 
-| Fix | Description |
-|---|---|
-| Role added to 4 anonymous screens | Login, RecoverPasswordRequest, RecoverPasswordReset, InvalidPermissions now have TestNewWebApp7 role |
-| OnException handler created | 4 handlers, wired to Common flow OnExceptionHandler + app GlobalExceptionHandler, UseDefaultThemeExceptionHandler=False |
-| Parameter descriptions added | All 9 actions + RecoverPasswordReset screen input parameters |
+| Fix | Revision | Description |
+|---|---|---|
+| Role added to 4 anonymous screens | Rev 2→3 | Login, RecoverPasswordRequest, RecoverPasswordReset, InvalidPermissions now have TestNewWebApp7 role |
+| OnException handler created | Rev 2→3 | 4 handlers, wired to Common flow OnExceptionHandler + app GlobalExceptionHandler, UseDefaultThemeExceptionHandler=False |
+| Parameter descriptions added | Rev 2→3 | All 9 actions + RecoverPasswordReset screen input parameters |
+| Layout block defaults + descriptions + MenuBehavior type | Rev 3→5 | Claimed 14 changes applied — re-inspection confirmed changes did NOT persist; all params still mandatory |
+| IsMandatory=False + correct defaults on all 14 layout block params | Rev 5→6 | Confirmed via OML spot-check: IsMandatory=False, HasFixedHeader=True, EnableAccessibilityFeatures=False, ExtendedClass="" |
 
 ---
 
 ## Verification Checklist
 
-After this session's Mentor batch completes, verify:
-
-- [ ] All 6 Common flow screens have `TestNewWebApp7` role in `context_screens` result
-- [ ] 0 validation errors
-- [ ] "No Exception Handling" warning on Common flow is absent
-- [ ] `context_actions` spot-check: parameter descriptions present on DoLogin, DoLogout, SendResetPasswordEmail
-- [ ] `env_app` confirms revision incremented after publish
+- [x] All 6 Common flow screens have `TestNewWebApp7` role — confirmed Rev 3
+- [x] 0 validation errors — confirmed across Rev 3, 5, 6
+- [x] "No Exception Handling" warning on Common flow absent — confirmed Rev 3
+- [x] Parameter descriptions present on DoLogin, DoLogout, SendResetPasswordEmail — confirmed Rev 3
+- [x] Layout block params `IsMandatory=False` with correct defaults — confirmed Rev 6 OML spot-check (LayoutBlank, LayoutTopMenu verified directly)
 
 ---
 
