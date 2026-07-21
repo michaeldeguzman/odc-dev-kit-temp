@@ -70,15 +70,40 @@ Call `context_actions {app: "<app>"}` and confirm required helper actions exist 
 
 **Static Entity:** `MessageType` — records: Success(1), Error(2), Warning(3), Info(4)
 
-**Helper Server Actions (with required folder placement):**
-- Folder `EntityActionResult`:
-  - `EntityActionResult_BuildFromSuccess(EntityActionResultMessageText: Text)` → `EntityActionResult`
-  - `EntityActionResult_BuildFromError(EntityActionResultMessageText: Text)` → `EntityActionResult`
-  - `EntityActionResult_CombineEntityActionMessages(EntityActionMessages: EntityActionMessage List)` → `CombinedEntityActionMessageTypeId`, `CombinedEntityActionMessageText`
-- Folder `Session`:
-  - `Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier` — **must be marked as Function** (ODC "Function" toggle = True) so it can be called inline in assignment expressions
+**User Exception:** `ProcessingException` — must be defined in the app; raised by `_GetCanRemove` (DatabaseException handler) and `_Remove` (GetCanRemove failure path).
 
-If any of these don't exist in the target app, create them first (in the correct folders) by referencing ModelApplication or recreating the pattern.
+**Helper Server Actions (with required folder placement and implementations):**
+
+Folder `EntityActionResult`:
+
+`EntityActionResult_BuildFromSuccess(EntityActionResultMessageText: Text)` → `EntityActionResult`
+- Assign: `EntityActionResult.IsSuccess = True`
+- Assign: `EntityActionResult.CombinedEntityMessageText = EntityActionResultMessageText`
+- Assign: `EntityActionResult.CombinedEntityActionMessageTypeId = Entities.MessageType.Success`
+
+`EntityActionResult_BuildFromError(EntityActionResultMessageText: Text)` → `EntityActionResult`
+- Assign: `EntityActionResult.IsSuccess = False`
+- Assign: `EntityActionResult.CombinedEntityMessageText = EntityActionResultMessageText`
+- Assign: `EntityActionResult.CombinedEntityActionMessageTypeId = Entities.MessageType.Error`
+
+`EntityActionResult_CombineEntityActionMessages(EntityActionMessages: EntityActionMessage List)` → `CombinedEntityActionMessageTypeId` (MessageType Identifier), `CombinedEntityActionMessageText` (Text)
+- Local variable: `CurrentMessage` (EntityActionMessage)
+- Assign init: `CombinedEntityActionMessageTypeId = Entities.MessageType.Info`
+- ForEach over `EntityActionMessages`:
+  - Assign: `CurrentMessage = EntityActionMessages.Current`
+  - Assign: `CombinedEntityActionMessageText = If(CombinedEntityActionMessageText = "", CurrentMessage.MessageText, CombinedEntityActionMessageText + "; " + CurrentMessage.MessageText)`
+  - If `CurrentMessage.MessageTypeId = Entities.MessageType.Error` → Assign `CombinedEntityActionMessageTypeId = Entities.MessageType.Error`
+  - Else If `CurrentMessage.MessageTypeId = Entities.MessageType.Warning and CombinedEntityActionMessageTypeId <> Entities.MessageType.Error` → Assign `CombinedEntityActionMessageTypeId = Entities.MessageType.Warning`
+  - Else: no-op (loop back)
+- Severity escalates Info → Warning → Error; never downgrades. Messages joined with `"; "` separator.
+
+Folder `Session`:
+
+`Session_GetNormalizedSessionUserId()` → `NormalizedSessionUserId: User Identifier`
+- Assign: `NormalizedSessionUserId = GetUserId()`
+- **Must be marked as Function** (ODC "Function" toggle = True) so it can be called inline in assignment expressions
+
+If any of these don't exist in the target app, create them first (in the correct folders) using the implementations above.
 
 ## The 4 CRUD Actions
 
@@ -87,26 +112,29 @@ If any of these don't exist in the target app, create them first (in the correct
 ```
 Input:  Source ({Entity} record, mandatory)
 Output: EntityActionResult
+Local variables: NewMessage (EntityActionMessage)
 
 Flow:
   1. For each mandatory business field (e.g. Name):
      a. If Source.FieldName = "" (or default/empty):
-        ListAppend to EntityActionResult.EntityActionMessages:
-          { MessageText: "FieldName is required.", MessageTypeId: Entities.MessageType.Error }
+        Assign NewMessage.MessageTypeId = Entities.MessageType.Error
+        Assign NewMessage.MessageText = "FieldName is required."
+        ListAppend(NewMessage) → EntityActionResult.EntityActionMessages
      b. If Length(Source.FieldName) > MaxLength:
-        ListAppend to EntityActionResult.EntityActionMessages:
-          { MessageText: "FieldName cannot be longer than N characters.", MessageTypeId: Entities.MessageType.Error }
+        Assign NewMessage.MessageTypeId = Entities.MessageType.Error
+        Assign NewMessage.MessageText = "FieldName cannot be longer than N characters."
+        ListAppend(NewMessage) → EntityActionResult.EntityActionMessages
 
-  2. If EntityActionResult.EntityActionMessages.Empty  [label: "Valid?"]
+  2. If EntityActionResult.EntityActionMessages.Empty  [label: "No errors?"]
      True  → Assign EntityActionResult.IsSuccess = True → End
      False → Call EntityActionResult_CombineEntityActionMessages(EntityActionResult.EntityActionMessages)
              Assign EntityActionResult.IsSuccess = False
-             Assign EntityActionResult.CombinedEntityMessageText = CombineResult.CombinedEntityActionMessageText
-             Assign EntityActionResult.CombinedEntityActionMessageTypeId = CombineResult.CombinedEntityActionMessageTypeId
+             Assign EntityActionResult.CombinedEntityMessageText = CombineMessages.CombinedEntityActionMessageText
+             Assign EntityActionResult.CombinedEntityActionMessageTypeId = CombineMessages.CombinedEntityActionMessageTypeId
              → End
 
 IMPORTANT: Do NOT call BuildFromError/BuildFromSuccess inside Validate.
-Use ListAppend + CombineEntityActionMessages + direct assignment only.
+Use NewMessage local variable + ListAppend + CombineEntityActionMessages + direct assignment only.
 ```
 
 ### 2. `{Entity}_Upsert`
@@ -117,8 +145,9 @@ Output: EntityActionResult, Id ({Entity} Identifier)
 
 Flow:
   1. Call {Entity}_Validate(Source)
-  2. If NOT SampleEntity_Validate.EntityActionResult.IsSuccess  [label: "Valid?"]
-     → Assign EntityActionResult = {Entity}_Validate.EntityActionResult → End
+  2. If {Entity}_Validate.EntityActionResult.IsSuccess  [label: "Valid?"]
+     False → Assign EntityActionResult = {Entity}_Validate.EntityActionResult → End
+     True  → continues
 
   3. If Source.Id = NullIdentifier()  [label: "New record?"]
      CREATE path:
@@ -135,21 +164,25 @@ Flow:
        Call Update{Entity}(Source)
        Assign Id = Source.Id
 
-  4. Assign EntityActionResult = EntityActionResult_BuildFromSuccess(
-       "{Entity} """ + Source.{NameField} + """ has been saved.")
-  5. End
+  4. Call EntityActionResult_BuildFromSuccess(
+       "{Entity} " + Chr(34) + Source.{NameField} + Chr(34) + " has been saved.")
+  5. Assign EntityActionResult = BuildFromSuccess.EntityActionResult
+  6. End
 
 Exception Handlers:
-  DatabaseException → EntityActionResult = EntityActionResult_BuildFromError(
-    "An error has occurred. Please see a system administrator.") → End
-  AllExceptions     → EntityActionResult = EntityActionResult_BuildFromError(
-    AllExceptions.ExceptionMessage) → End
+  DatabaseException (AbortTransaction = Yes) → EntityActionResult_BuildFromError(
+    "An error has occurred. Please see a system administrator.")
+    Assign EntityActionResult = result → End
+  AllExceptions (AbortTransaction = No) → EntityActionResult_BuildFromError(
+    AllExceptions.ExceptionMessage)
+    Assign EntityActionResult = result → End
 
 IMPORTANT:
 - Use separate Create{Entity} and Update{Entity} — NOT CreateOrUpdate{Entity}.
 - On create, UpdatedOn = Source.CreatedOn (copy), NOT a second CurrDateTime() call.
 - UpdatedByUserId = Source.CreatedByUserId (copy) on create path.
 - Session_GetNormalizedSessionUserId() MUST be called inline inside the assign expression — do NOT add a separate action call node before the assign widget.
+- AllExceptions handler MUST have AbortTransaction = No.
 - Must include both exception handlers.
 ```
 
@@ -161,14 +194,19 @@ Output: EntityActionResult
 
 Flow:
   1. Aggregate GetById: fetch {Entity} where {Entity}.Id = Id, MaxRecords = 1
-  2. If GetById.List.Current.{Entity}.Id = NullIdentifier()  [record exists?]
-     → EntityActionResult = EntityActionResult_BuildFromError(
-         "Cannot remove an unsaved {Entity}.") → End
-  3. If GetById.List.Current.{Entity}.IsActive  [still active?]
-     True  → EntityActionResult = EntityActionResult_BuildFromSuccess("") → End
-     False → EntityActionResult = EntityActionResult_BuildFromError(
-               "Cannot remove {Entity} """ + GetById.List.Current.{Entity}.{NameField} +
-               """, it is already removed.") → End
+  2. If GetById.List.Current.{Entity}.Id = NullIdentifier()  [label: "Exists?"]
+     True  (not found) → Call EntityActionResult_BuildFromError(
+                             "Cannot remove an unsaved {Entity}.")
+                          Assign EntityActionResult = result → End
+     False (found)     → continues
+  3. If GetById.List.Current.{Entity}.IsActive  [label: "IsActive?"]
+     True  → Call EntityActionResult_BuildFromSuccess("")
+             Assign EntityActionResult = result → End
+     False → Call EntityActionResult_BuildFromError(
+               "Cannot remove {Entity} " + Chr(34) +
+               GetById.List.Current.{Entity}.{NameField} +
+               Chr(34) + ", it is already removed.")
+             Assign EntityActionResult = result → End
 
 Exception Handler:
   DatabaseException → Raise ProcessingException(
@@ -186,32 +224,38 @@ Output: EntityActionResult
 
 Flow:
   1. Call {Entity}_GetCanRemove(Id)
-  2. If NOT {Entity}_GetCanRemove.EntityActionResult.IsSuccess
-     → Raise ProcessingException(
-         {Entity}_GetCanRemove.EntityActionResult.CombinedEntityMessageText)
-       ← RAISE, do NOT return EntityActionResult with IsSuccess=False
+  2. If {Entity}_GetCanRemove.EntityActionResult.IsSuccess  [label: "Can Remove?"]
+     False → Raise ProcessingException(
+               {Entity}_GetCanRemove.EntityActionResult.CombinedEntityMessageText)
+             ← RAISE, do NOT return EntityActionResult with IsSuccess=False
 
-  3. Call GetForUpdate{Entity}(Id)   ← locks record for update
-  4. Assign GetForUpdate{Entity}.Record.{Entity}.UpdatedOn = CurrDateTime()
-     Assign GetForUpdate{Entity}.Record.{Entity}.UpdatedByUserId = Session_GetNormalizedSessionUserId()
-     Assign GetForUpdate{Entity}.Record.{Entity}.IsActive = False
-  5. Call Update{Entity}(GetForUpdate{Entity}.Record)
-  6. Assign EntityActionResult = EntityActionResult_BuildFromSuccess(
-       "{Entity} """ + GetForUpdate{Entity}.Record.{Entity}.{NameField} +
-       """ has been removed.")
-  7. End
+  3. Call Get{Entity}ForUpdate(Id)   ← locks record for update
+  4. Assign Get{Entity}ForUpdate.Record.{Entity}.UpdatedOn = CurrDateTime()
+     Assign Get{Entity}ForUpdate.Record.{Entity}.UpdatedByUserId = Session_GetNormalizedSessionUserId()
+     Assign Get{Entity}ForUpdate.Record.{Entity}.IsActive = False
+  5. Call Update{Entity}(Get{Entity}ForUpdate.Record.{Entity})
+             ← pass the entity record (.Record.{Entity}), NOT .Record alone
+  6. Call EntityActionResult_BuildFromSuccess(
+       "{Entity} " + Chr(34) + Get{Entity}ForUpdate.Record.{Entity}.{NameField} +
+       Chr(34) + " has been removed.")
+  7. Assign EntityActionResult = BuildFromSuccess.EntityActionResult
+  8. End
 
 Exception Handlers:
-  DatabaseException → EntityActionResult = EntityActionResult_BuildFromError(
-    "An error has occurred. Please see a system administrator.") → End
-  AllExceptions     → EntityActionResult = EntityActionResult_BuildFromError(
-    AllExceptions.ExceptionMessage) → End
+  DatabaseException (AbortTransaction = Yes) → EntityActionResult_BuildFromError(
+    "An error has occurred. Please see a system administrator.")
+    Assign EntityActionResult = result → End
+  AllExceptions (AbortTransaction = No) → EntityActionResult_BuildFromError(
+    AllExceptions.ExceptionMessage)
+    Assign EntityActionResult = result → End
 
 IMPORTANT:
 - When GetCanRemove fails → RAISE ProcessingException, do NOT return failure result.
-- Use GetForUpdate{Entity} (locks the row) — not GetById aggregate.
-- Assign fields on GetForUpdate{Entity}.Record.{Entity}, not on Source.
+- Row-lock action is Get{Entity}ForUpdate — NOT GetForUpdate{Entity} (wrong order).
+- Assign fields on Get{Entity}ForUpdate.Record.{Entity}, not on a separate Source variable.
+- Pass Get{Entity}ForUpdate.Record.{Entity} to Update{Entity} — NOT .Record alone.
 - Session_GetNormalizedSessionUserId() MUST be called inline inside the assign expression — do NOT add a separate action call node before the assign widget.
+- AllExceptions handler MUST have AbortTransaction = No.
 - Must include both exception handlers.
 ```
 
@@ -224,6 +268,7 @@ IMPORTANT:
 | Upsert | `{Entity}_Upsert` | `SampleEntity_Upsert` |
 | CanRemove check | `{Entity}_GetCanRemove` | `SampleEntity_GetCanRemove` |
 | Remove (soft-delete) | `{Entity}_Remove` | `SampleEntity_Remove` |
+| Row-lock action | `Get{Entity}ForUpdate` | `GetSampleEntityForUpdate` |
 | Input record param | `Source` | `Source` (always) |
 | ID input param | `Id` | `Id` (always) |
 | ID output param | `Id` | `Id` (always) |
@@ -243,19 +288,26 @@ Entity business fields: {list fields with type/mandatory/max-length}
 Standard audit fields (Id, IsActive, CreatedByUserId, CreatedOn, UpdatedByUserId,
 UpdatedOn) are already on the entity.
 
-Create these 4 server actions:
+Create these 4 server actions with the descriptions specified:
 
-1. {EntityName}_Validate — Input: Source ({EntityName} record, mandatory).
+1. {EntityName}_Validate
+   Description: "Validates the {EntityName} record fields. Returns EntityActionResult
+   with IsSuccess=False and accumulated error messages if any validation rules fail."
+   Input: Source ({EntityName} record, mandatory).
    Output: EntityActionResult.
-   For each mandatory business field, use ListAppend to append an EntityActionMessage
-   { MessageText: "FieldName is required.", MessageTypeId: Entities.MessageType.Error }
-   to EntityActionResult.EntityActionMessages. Also check max-length constraints.
+   Local variable: NewMessage (EntityActionMessage).
+   For each mandatory business field: assign NewMessage.MessageTypeId = Entities.MessageType.Error
+   and NewMessage.MessageText = "FieldName is required.", then ListAppend NewMessage to
+   EntityActionResult.EntityActionMessages. Also check max-length constraints the same way.
    Then: if EntityActionResult.EntityActionMessages.Empty → set EntityActionResult.IsSuccess=True.
    Else → call EntityActionResult_CombineEntityActionMessages and set IsSuccess=False,
    CombinedEntityMessageText, CombinedEntityActionMessageTypeId from its output.
    Do NOT use BuildFromError or BuildFromSuccess inside Validate.
 
-2. {EntityName}_Upsert — Input: Source ({EntityName} record, mandatory).
+2. {EntityName}_Upsert
+   Description: "Creates or updates a {EntityName} record after validation. Returns
+   EntityActionResult and the Id of the saved record."
+   Input: Source ({EntityName} record, mandatory).
    Output: EntityActionResult + Id ({EntityName} Identifier).
    Call _Validate first; if not IsSuccess assign EntityActionResult from it and End.
    If Source.Id = NullIdentifier(): set CreatedOn=CurrDateTime(), CreatedByUserId=
@@ -264,31 +316,44 @@ Create these 4 server actions:
    Create{EntityName}(Source) and assign Id = Create{EntityName}.Id.
    Else: set UpdatedOn=CurrDateTime(), UpdatedByUserId=Session_GetNormalizedSessionUserId(),
    call Update{EntityName}(Source), assign Id=Source.Id.
-   Both paths: EntityActionResult = EntityActionResult_BuildFromSuccess(
-   "{EntityName} """ + Source.{NameField} + """ has been saved.").
-   Add DatabaseException handler → BuildFromError("An error has occurred. Please see
-   a system administrator.") and AllExceptions handler → BuildFromError(ExceptionMessage).
+   Both paths: call EntityActionResult_BuildFromSuccess with message
+   "{EntityName} " + Chr(34) + Source.{NameField} + Chr(34) + " has been saved.",
+   then assign EntityActionResult from it.
+   Add DatabaseException handler (AbortTransaction=Yes) → BuildFromError("An error has occurred.
+   Please see a system administrator.") and AllExceptions handler (AbortTransaction=No) →
+   BuildFromError(AllExceptions.ExceptionMessage).
 
-3. {EntityName}_GetCanRemove — Input: Id ({EntityName} Identifier, mandatory).
+3. {EntityName}_GetCanRemove
+   Description: "Checks whether the {EntityName} record is eligible for soft-deletion.
+   Returns EntityActionResult with IsSuccess=True if removal is allowed."
+   Input: Id ({EntityName} Identifier, mandatory).
    Output: EntityActionResult.
-   Use an Aggregate (named GetById) filtering {EntityName}.Id = Id, MaxRecords=1.
-   If GetById.List.Current.{EntityName}.Id = NullIdentifier() → BuildFromError(
-   "Cannot remove an unsaved {EntityName}.").
-   Else if GetById.List.Current.{EntityName}.IsActive → BuildFromSuccess("").
-   Else → BuildFromError("Cannot remove {EntityName} """ + Name + """, it is already removed.").
+   Use an Aggregate named GetById filtering {EntityName}.Id = Id, MaxRecords=1.
+   If GetById.List.Current.{EntityName}.Id = NullIdentifier() → call BuildFromError(
+   "Cannot remove an unsaved {EntityName}.") and assign EntityActionResult from it.
+   Else if GetById.List.Current.{EntityName}.IsActive → call BuildFromSuccess("") and assign.
+   Else → call BuildFromError("Cannot remove {EntityName} " + Chr(34) +
+   GetById.List.Current.{EntityName}.{NameField} + Chr(34) + ", it is already removed.")
+   and assign.
    Add DatabaseException handler that raises ProcessingException(
    "An error has occurred. Please see a system administrator.").
 
-4. {EntityName}_Remove — Input: Id ({EntityName} Identifier, mandatory).
+4. {EntityName}_Remove
+   Description: "Soft-deletes the {EntityName} record by setting IsActive=False and
+   updating audit fields. Raises ProcessingException if the record cannot be removed."
+   Input: Id ({EntityName} Identifier, mandatory).
    Output: EntityActionResult.
    Call _GetCanRemove; if not IsSuccess → Raise ProcessingException(
    CombinedEntityMessageText) — do NOT return EntityActionResult.
-   Call GetForUpdate{EntityName}(Id). Assign UpdatedOn=CurrDateTime(),
+   Call Get{EntityName}ForUpdate(Id). Assign UpdatedOn=CurrDateTime(),
    UpdatedByUserId=Session_GetNormalizedSessionUserId(), IsActive=False on
-   GetForUpdate{EntityName}.Record.{EntityName}. Call Update{EntityName}(Record).
-   EntityActionResult = BuildFromSuccess("{EntityName} """ + Record.Name +
-   """ has been removed.").
-   Add DatabaseException and AllExceptions handlers → BuildFromError.
+   Get{EntityName}ForUpdate.Record.{EntityName}. Call Update{EntityName}(
+   Get{EntityName}ForUpdate.Record.{EntityName}) — pass the entity record, not .Record alone.
+   Call BuildFromSuccess("{EntityName} " + Chr(34) +
+   Get{EntityName}ForUpdate.Record.{EntityName}.{NameField} + Chr(34) + " has been removed.")
+   and assign EntityActionResult from it.
+   Add DatabaseException (AbortTransaction=Yes) and AllExceptions (AbortTransaction=No)
+   handlers → BuildFromError as above.
 
 All shared helpers (EntityActionResult_BuildFromSuccess, BuildFromError,
 CombineEntityActionMessages, Session_GetNormalizedSessionUserId) already exist in the app.
@@ -328,18 +393,21 @@ Then publish.
 After mentor run, confirm via `context_actions` and mentor inspection:
 - [ ] Pre-flight run: entity fields verified (or added as IsMandatory=False with safe defaults)
 - [ ] Pre-flight run: shared infrastructure confirmed present before CRUD actions created
+- [ ] `ProcessingException` user exception exists in the app
 - [ ] `EntityActionResult_*` helpers are inside folder `EntityActionResult`
 - [ ] `Session_GetNormalizedSessionUserId` is inside folder `Session`
 - [ ] All 4 actions are inside a folder named `{Entity}`
 - [ ] 4 actions exist: `_Validate`, `_Upsert`, `_GetCanRemove`, `_Remove`
+- [ ] All 4 actions have non-empty descriptions (`rules/descriptions.md`)
 - [ ] `_Upsert` has `Source` input + `EntityActionResult` output + `Id` output
 - [ ] `_Upsert` uses `Create{Entity}` + `Update{Entity}` separately (not `CreateOrUpdate`)
-- [ ] `_Upsert` has DatabaseException + AllExceptions handlers
-- [ ] `_Validate` uses `ListAppend` + `CombineEntityActionMessages` (NOT BuildFromError/BuildFromSuccess)
+- [ ] `_Upsert` has DatabaseException (AbortTransaction=Yes) + AllExceptions (AbortTransaction=No) handlers
+- [ ] `_Validate` uses NewMessage local variable + `ListAppend` + `CombineEntityActionMessages` (NOT BuildFromError/BuildFromSuccess)
 - [ ] `_GetCanRemove` uses an Aggregate named `GetById` (not entity Get action)
 - [ ] `_Remove` raises `ProcessingException` on GetCanRemove failure (not returns EntityActionResult)
-- [ ] `_Remove` uses `GetForUpdate{Entity}` (not aggregate)
-- [ ] `_Remove` has DatabaseException + AllExceptions handlers
+- [ ] `_Remove` uses `Get{Entity}ForUpdate` (NOT `GetForUpdate{Entity}`)
+- [ ] `_Remove` passes `Get{Entity}ForUpdate.Record.{Entity}` to `Update{Entity}` (NOT `.Record` alone)
+- [ ] `_Remove` has DatabaseException (AbortTransaction=Yes) + AllExceptions (AbortTransaction=No) handlers
 - [ ] `Session_GetNormalizedSessionUserId()` called inline in assign expressions in `_Upsert` and `_Remove` — no separate call node before the assign widget
 - [ ] All 4 actions have been auto-positioned (clean, readable layout)
 - [ ] 0 errors in validation (warnings for unused actions are expected)

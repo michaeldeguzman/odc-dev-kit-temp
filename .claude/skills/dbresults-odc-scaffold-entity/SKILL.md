@@ -110,20 +110,29 @@ Role-protected (same role gating the rest of the app's CRUD screens).
 
 | Action | Logic |
 |---|---|
-| `DeleteOnClick(Id)` | Calls `{Entity}_Remove`; if `IsSuccess = False` → show Error message |
-| `OnSearch` | Resets `StartIndex = 0`, refreshes aggregate |
-| `OnPaginationNavigate(NewStartIndex)` | Assigns new start index, refreshes aggregate |
-| `OnSort(SortBy)` | Same column clicked twice → append `" DESC"` (toggle); otherwise `TableSort = SortBy`; resets `StartIndex = 0`; refreshes aggregate |
+| `DeleteOnClick(Id)` | Calls `{Entity}_Remove(Id)`; if `IsSuccess = False` → show Error message with `CombinedEntityMessageText` |
+| `OnSearch` | Resets `StartIndex = 0`, refreshes `Get{Entity}s` |
+| `OnPaginationNavigate(NewStartIndex)` | Assigns `StartIndex = NewStartIndex`, refreshes `Get{Entity}s` |
+| `OnSort(SortBy)` | Condition: `TableSort = SortBy and SortBy <> ""` (already on this column?) → True: `TableSort = SortBy + " DESC"` / False: `TableSort = SortBy`. Then resets `StartIndex = 0`, refreshes `Get{Entity}s`. Toggle pattern: ASC → DESC → ASC (third click reverts because `SortBy + " DESC"` ≠ `SortBy`). |
 
 **UI structure** (inside the app's standard layout, e.g. `LayoutTopMenu` in the reference app — use whatever layout this app actually uses):
 
 - Title placeholder: `<h1>{Entity} List</h1>`
-- Actions placeholder: Columns2-style container — Search block (input bound to `SearchKeyword`, `OnChange` → `OnSearch`) + `"Add {Entity}"` button (navigates to `{Entity}Detail` with `NullIdentifier()`)
+- Actions placeholder: a `Container` (4-column width) holding:
+  - OutSystems UI `Search` block with an `Input` widget inside (type: Search, bound to `SearchKeyword`, `OnChange` → `OnSearch`)
+  - `"Add {Entity}"` button (primary style, `+` icon, navigates to `{Entity}Detail` passing `NullIdentifier()`)
 - MainContent placeholder:
   - `TableRecords` bound to `Get{Entity}s.List`, `OnSort` → `OnSort`
-  - Columns: `{NameField}` (link → detail), `Created On` (formatted datetime, right-aligned), `Created By User` (`User.Name`), `Updated On` (formatted datetime, right-aligned), actions column (trash icon link → `DeleteOnClick`)
-  - `IsTableLoadingOrEmpty` container with an `IfWidget`: empty state → `"No items to show..."`, loading state → list-updating container
-  - Pagination block wired to `OnPaginationNavigate`, caret-left/right icons
+  - Columns:
+    - `{NameField}` — `Link` widget displaying `{Entity}.{NameField}`, navigates to `{Entity}Detail` passing record `Id`; sortable by `{Entity}.{NameField}`
+    - `Created On` — `Expression` formatted `FormatDateTime(..., "d MMM yyyy HH:mm")`, right-aligned; sortable
+    - `Created By User` — `Expression` showing `User.Name`; sortable by `{Entity}.CreatedByUserId`
+    - `Updated On` — `Expression` formatted `FormatDateTime(..., "d MMM yyyy HH:mm")`, right-aligned; sortable
+    - `Actions` — **50px wide, no header label**; `Link` with trash icon → `DeleteOnClick(Id)`
+  - `IsTableLoadingOrEmpty` container with a nested `If` widget:
+    - True branch (data fetched, list is empty): container with CSS class `"table-empty"` + text `"No items to show..."` with `role="status"` accessibility attribute
+    - False branch: second `If` on `IsLoading` → loading container with CSS class `"list-updating"`
+  - `Pagination` block bound to `Get{Entity}s.Count`, `MaxRecords`, `StartIndex`; `OnNavigate` → `OnPaginationNavigate`; caret-left / caret-right icons in Previous/Next placeholders
 
 No `OnInitialize` — data comes from the screen aggregate at load, not an initialize action.
 
@@ -132,8 +141,8 @@ No `OnInitialize` — data comes from the screen aggregate at load, not an initi
 Role-protected (same as list screen). Input parameter: `{Entity}Id` (`{Entity}` Identifier).
 
 **Aggregates:**
-- `Get{Entity}ById` — fetches `{Entity}` filtered by `{Entity}.Id = {Entity}Id`, single record
-- `GetUsers` — all `User` records sorted by `User.Name` (populates the audit-field dropdowns)
+- `Get{Entity}ById` — fetches `{Entity}` filtered by `{Entity}.Id = {Entity}Id`, `MaxRecords = 1`
+- `GetUsers` — all `User` records sorted by `User.Name` ascending; no `MaxRecords` cap (matches reference — potential performance concern on large tenants; see Known Issues)
 
 **Screen action `SaveDetail`:**
 - Checks `Form1.Valid` — if invalid, shows `"Navigate to another screen or implement the required logic."`
@@ -144,17 +153,17 @@ Role-protected (same as list screen). Input parameter: `{Entity}Id` (`{Entity}` 
 **UI structure** (inside the app's standard layout, e.g. `LayoutTopMenu` in the reference app — use whatever layout this app actually uses):
 
 - Title placeholder: `IfWidget` on `{Entity}Id <> NullIdentifier()` → `<h1>Edit {Entity}</h1>` / `<h1>New {Entity}</h1>`
-- MainContent placeholder: Columns2 block (`PhoneBehavior = BreakColumns.All`)
-  - **Column 1:** `Form1` — one container per field:
+- MainContent placeholder: `Columns2` block (`PhoneBehavior = Entities.BreakColumns.All`, tablet = default)
+  - **Column 1:** `Form1` — one container per field, all form inputs bind to `Get{Entity}ById.List.Current.{Entity}.*`:
     - `{NameField}` — Text input, mandatory, bound to `Get{Entity}ById.List.Current.{Entity}.{NameField}`
     - One input per remaining business field (mandatory/optional and widget type follow that field's own definition — not prescribed here)
-    - `Created On` — Datetime input, mandatory
-    - `Created By User` — Dropdown (Text mode), list = `GetUsers.List`, values = `User.Id`, labels = `User.Name`, bound to `CreatedByUserId`
-    - `Updated On` — Datetime input, mandatory
-    - `Updated By User` — Dropdown (same pattern), bound to `UpdatedByUserId`
-    - `Is Active` — Checkbox, bound to `IsActive`
-    - Buttons container: `"Back"` (navigates to `{Entity}s`, `ValidateAndContinue`) + `"Save"` (default button, calls `SaveDetail`, `ValidateAndContinue`, `btn btn-primary`)
-  - **Column 2 (optional):** decorative image filling the column width, if the app's theme has a suitable asset — purely cosmetic, skip if none fits or if the user doesn't want it
+    - `Created On` — Datetime input, mandatory, bound to `Get{Entity}ById.List.Current.{Entity}.CreatedOn`
+    - `Created By User` — Dropdown (Text mode), list = `GetUsers.List`, values = `User.Id`, labels = `User.Name`, bound to `Get{Entity}ById.List.Current.{Entity}.CreatedByUserId`; not mandatory
+    - `Updated On` — Datetime input, mandatory, bound to `Get{Entity}ById.List.Current.{Entity}.UpdatedOn`
+    - `Updated By User` — Dropdown (same pattern), bound to `Get{Entity}ById.List.Current.{Entity}.UpdatedByUserId`; not mandatory
+    - `Is Active` — Checkbox, bound to `Get{Entity}ById.List.Current.{Entity}.IsActive`
+    - Buttons container: `"Back"` (navigates to `{Entity}s`, `ValidateAndContinue`) + `"Save"` (default button, primary style, calls `SaveDetail`, `ValidateAndContinue`)
+  - **Column 2:** decorative image — the local `Request` image asset, fill parent width, `margin-top: 0px`; purely cosmetic, empty `alt` attribute; skip if the app has no suitable local image or user doesn't want it
 
 ## Mentor Prompt Template
 
@@ -197,6 +206,8 @@ Run screens in a follow-up mentor turn after the actions are confirmed compiling
 
 - **Phosphor icon version mismatch.** The `"Add"` button's plus icon may be authored against Phosphor 1.x naming. Phosphor 2.0 also has a `plus` icon but weight/variant can differ, which produces a validation warning. Check the app's icon library version before scaffolding and confirm the icon name resolves cleanly — don't ignore the warning as cosmetic without checking.
 - **`Remove` marked as Function** (see Layer 1 note above) — confirm intent before replicating.
+- **`GetUsers` has no `MaxRecords` cap.** The reference pattern fetches all `User` records. On tenants with large user populations this is a performance concern for the detail screen. Consider adding a cap or switching to a search-as-you-type pattern if the tenant has many users.
+- **Reference screens have null descriptions.** Both `SampleEntities` and `SampleEntityDetail` in the reference app have `description: null` — a deviation from `rules/descriptions.md`. Do **not** replicate this. Always add non-empty descriptions to scaffolded screens, aggregates, and screen actions.
 
 ## Verification Checklist
 
@@ -206,8 +217,11 @@ After mentor run, confirm via `context_actions` + `context_screens`:
 - [ ] All 4 server actions exist in folder `{Entity}`, matching `dbresults-odc-crud-wrapper`'s checklist
 - [ ] List screen: aggregate joins `User`, filter/sort/pagination wired, all 4 screen actions present
 - [ ] List screen: empty/loading states present, no `OnInitialize`
-- [ ] Detail screen: both aggregates present, `Form1` fields bound correctly, `SaveDetail` wired to `_Upsert`
+- [ ] List screen: datetime columns use `FormatDateTime(..., "d MMM yyyy HH:mm")` format; actions column is 50px wide with no header label
+- [ ] Detail screen: both aggregates present (`Get{Entity}ById` with `MaxRecords = 1`); `Form1` fields bound to `Get{Entity}ById.List.Current.{Entity}.*`; `SaveDetail` wired to `_Upsert`
+- [ ] Detail screen: `Columns2` has `PhoneBehavior = Entities.BreakColumns.All`
 - [ ] Detail screen: title toggles Create/Edit via `{Entity}Id <> NullIdentifier()`
 - [ ] Both screens role-protected
+- [ ] Both screens have non-empty `Description` fields (reference has null — do not replicate; follow `rules/descriptions.md`)
 - [ ] No icon validation warnings (or flagged/resolved if present)
 - [ ] 0 errors in validation (warnings for unused actions are expected)

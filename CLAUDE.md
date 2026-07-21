@@ -130,6 +130,52 @@ New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp6
 
+### TestNewWebApp7 (`402cb58e-895a-4b97-8494-b7bfa914b667`) — 2026-07-21
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (7-batch structure). Brand color `#1E88E5`, reused the auto-generated `TestNewWebApp7` role. Session resumed from compacted prior context — Batch 5 first attempt was in-flight at compaction time.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Batches 1-7 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → server+client actions + wiring → email templates + RedirectToURL → validation sweep) | Rev 1 → 2 | 0 errors every batch; final sweep 0 errors, 6 expected warnings |
+| Batch 5 crash — OS-AISA-42903 usage limit | — | First attempt hit usage limit mid-`applyModelApiCode`; 3× subsequent 500s at `runQuery`; recovered after ~25 min. State inspection confirmed 0 partial changes from the failed run — clean retry. |
+| No `PhotoUrl` on User entity | — | This tenant's `User` entity: `Id, Name, Username, IsActive, Email, Phone, ExternalId` — no `PhotoUrl`. `OldPhotoURL` always `""`, `Client.UserPhotoURL` never populated from User entity |
+| `ISendEmailNode` blocked in sandbox | — | Same as TestNewWebApp6 — `SendResetPasswordEmail` and `SendChangeEmail` server actions have Reminder nodes requiring manual ODC Studio wiring to `ResetPassword` and `ChangeEmail` templates |
+| `SetIconLibraryClass` unavailable | — | Same sandbox limitation — 4 Reminder nodes in layout block OnInitialize; needs manual wiring in ODC Studio |
+| `RedirectToURL` external site pre-existed | — | Batch 3 had already created a static-URL version; Batch 6 updated it to accept URL as input parameter and rewired all destination nodes |
+| `(System)` / OutSystemsUI reference hashes all-zero | — | Same sandbox limitation as prior runs — flagged but did not cause build failure |
+| Publish | — | **NOT DEPLOYED** — post-session investigation (2026-07-21) confirmed `env_app` returns 404 and `context_actions` returns 0. Mentor session GC'd after idle and re-downloaded the blank published revision; all batch work was lost. The `no_changes_detected: true` was misleading. App must be re-scaffolded. |
+
+### TestNewWebApp7 — re-scaffold (`402cb58e-895a-4b97-8494-b7bfa914b667`) — 2026-07-21
+
+Re-scaffold of TestNewWebApp7 (prior session's work lost to Mentor session GC — see failed entry above). Session resumed from compacted prior context — Batch 3 was in-flight at compaction time (polled to completion). 7-batch structure, brand color `#1E88E5`, reused auto-generated `TestNewWebApp7` role.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Batches 1-7 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks → 5 auth screens → UserProfile → server+client actions + wiring → email templates + RedirectToURL + SendEmail nodes → wiring closure + validation sweep) | Rev 1 → 2 | 0 errors every batch; final sweep 0 errors, 2 accepted warnings |
+| Batch 4 — 502 transient disconnect | — | First attempt hit upstream 502; recovered with `fresh_context: true` (keeps unpublished edits, starts fresh conversation over current OML state) |
+| `ISendEmailNode` via natural language — works | — | SendEmail nodes created via Mentor natural language path (NOT `applyModelApiCode`). Both `SendResetPasswordEmail` and `SendChangeEmail` fully wired to templates |
+| `SetIconLibraryClass` stub wired | — | Local stub client action in Authentication folder wired in 4 layout block OnInitialize; 0 warnings. ODC Studio still needed to substitute real OutSystemsUI action |
+| No `PhotoUrl` on User entity | — | `Id, Name, Username, IsActive, Email, Phone, ExternalId` — no `PhotoUrl`. `OldPhotoURL` always `""`, `Client.UserPhotoURL` never populated |
+| Batch 7 fixes | — | Removed `TestNewWebApp7` role from 4 anonymous screens (Login, RecoverPasswordRequest, RecoverPasswordReset, InvalidPermissions); moved `SetIconLibraryClass` stub to Authentication folder |
+| `(System)` / OutSystemsUI reference hashes all-zero | — | Same sandbox limitation — did not cause build failure |
+| Publish | — | `no_changes_detected: true` — Mentor auto-published during batches. Verified via `env_app`: revision 2, deployed 2026-07-21T04:36:22Z |
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp7
+
+### TestNewWebApp6 — follow-up investigation (`9ee7bc33-0108-4b8a-8556-2ce6a7e72c77`) — 2026-07-21
+
+Investigation into ISendEmailNode and SetIconLibraryClass automation. Used NewApp (`88f79d25-6cbf-4178-b804-199303656da4`) as reference.
+
+| Finding | Detail |
+|---|---|
+| NewApp has real `ISendEmailNode` | Confirmed via Mentor inspection — `ISendEmailNode` calling `ResetPassword` template exists in NewApp's `SendResetPasswordEmail` server action |
+| NewApp has real `SetIconLibraryClass` | LayoutBlank.OnInitialize calls `OutSystemsUI.SetIconLibraryClass` |
+| `ISendEmailNode` via `applyModelApiCode` blocked | Confirmed failure mode — sandbox execution exception. Prior SKILL.md claim to "use it" was wrong |
+| `ISendEmailNode` via natural language **works** | Confirmed on TestNewWebApp6: Mentor created real SendEmail nodes for both server actions, 0 errors, 0 warnings |
+| `SetIconLibraryClass` GlobalKey | `Kn_hixxDWEm4lMd7mIpycQ*l+LGqvnbjEWzX1y8Hxcx+g` from OutSystemsUI |
+| `add_references_to_elements` for SetIconLibraryClass | Does not succeed (20-element Model API surface limitation). Mentor fallback: creates local stub client action named `SetIconLibraryClass` — 0 warnings, 0 errors, but stub has no body |
+| Outcome | SendEmail manual step eliminated. SetIconLibraryClass: stub wired (clean validation), ODC Studio still needed to substitute real OutSystemsUI action |
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_

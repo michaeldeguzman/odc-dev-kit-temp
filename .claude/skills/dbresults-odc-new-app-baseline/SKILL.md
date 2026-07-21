@@ -1425,11 +1425,24 @@ it re-explore the API blind.
   is correct and expected; the bug is creating a *second* one of the
   *same* scope by accident (see "Post-crash-recovery structural check"
   below) — that's the one that breaks the build.
-- **The reactive/mobile SendEmail node is a distinct type from the legacy
-  one.** Use `OutSystems.Model.Logic.Mobile.Nodes.ISendEmailNode` (has an
-  `Email` reference property) inside server actions for ODC reactive
-  apps — not `OutSystems.Model.Logic.Nodes.ISendEmailNode` (the legacy
-  traditional-web type, no usable `Email` property in this context).
+- **`ISendEmailNode` cannot be created via `applyModelApiCode` — but CAN be
+  created via Mentor's natural language editing path.** `applyModelApiCode`
+  throws a sandbox execution exception when trying to create a SendEmail node
+  (confirmed across TestNewWebApp3–7). However, asking Mentor in plain language
+  ("add a Send Email node to this action wired to the ResetPassword template")
+  works — Mentor uses its own model-editing path which is not blocked. Confirmed
+  on TestNewWebApp6 (0 errors, 0 warnings). Two requirements: (1) the email
+  template must already exist in the app before requesting the SendEmail node;
+  (2) the request must be in natural language, NOT as `applyModelApiCode`. See
+  Batch 6 in Mentor Prompt Strategy for the exact instruction.
+- **`SetIconLibraryClass` is not in the Model API's OutSystemsUI surface —
+  confirmed by direct reference scan.** The OutSystemsUI reference exposes
+  exactly 20 elements via the Model API; `SetIconLibraryClass` is not among
+  them. The full OutSystemsUI library has this action and ODC Studio's Manage
+  Dependencies panel shows it — the Model API simply does not surface it. Place
+  a Reminder comment node in each layout block's `OnInitialize` in its place.
+  Wire `SetIconLibraryClass` in ODC Studio after the skill run (see "Known
+  Manual Steps" below).
 - **The Model API's code sandbox disallows `for`/`foreach`-with-mutation
   loops, local functions, and sized array creation** (`new Type[]{...}`
   is fine; `new Type[256]` is not). Don't attempt anything requiring a
@@ -1480,7 +1493,19 @@ moving to the next:
    standalone theme (do NOT extend `OutSystemsUI` the way `{App}` does —
    see section 2), and set the `Emails` flow's own `Theme` property to
    `EmailTheme` right away in this batch, not deferred to Batch 6.
-2. **Layout blocks + common blocks** — the shared UI chrome.
+2. **Layout blocks + common blocks** — the shared UI chrome. Before creating
+   the layout blocks, attempt to add `SetIconLibraryClass` from OutSystemsUI
+   via `add_references_to_elements` using global key
+   `Kn_hixxDWEm4lMd7mIpycQ*l+LGqvnbjEWzX1y8Hxcx+g`. If the reference add
+   succeeds, wire the real `OutSystemsUI.SetIconLibraryClass` in each layout
+   block's `OnInitialize`. If it fails or the element isn't visible after
+   adding (the Model API exposes only 20 of OutSystemsUI's elements by default
+   and `SetIconLibraryClass` is not among them — confirmed by direct scan),
+   create a local client action stub named `SetIconLibraryClass` with no
+   parameters and no body, and wire that instead — 0 errors, 0 warnings
+   confirmed on TestNewWebApp6. The stub is a placeholder; swap it for the
+   real `OutSystemsUI.SetIconLibraryClass` in ODC Studio after the skill run
+   (see "Known Manual Steps" below).
 3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
    RecoverPasswordReset → ChangePassword → InvalidPermissions). Build
    `LoginOnClick`/`LoginProviderOnClick` to the full flow in section 8 —
@@ -1506,8 +1531,8 @@ moving to the next:
    `HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, and
    `ExtendedClass = ""` on the instance; a blank argument here is a
    confirmed publish-time error (section 6), not just a style nit.
-5. **Server actions + client actions** (Authentication and UserActions folders) — wire ALL previously-stubbed screen logic from batches 3 and 4, including UserProfile's. Do **NOT** create a `Check{App}Role`/`Has{App}Role` wrapper client action — the `{App}` role's built-in check function is used directly in `LoginOnClick` (see section 8, step 4).
-6. **Email templates + external site**.
+5. **Server actions + client actions** (Authentication and UserActions folders) — wire ALL previously-stubbed screen logic from batches 3 and 4, including UserProfile's. Do **NOT** create a `Check{App}Role`/`Has{App}Role` wrapper client action — the `{App}` role's built-in check function is used directly in `LoginOnClick` (see section 8, step 4). Do **NOT** add SendEmail nodes yet — the email templates don't exist until Batch 6.
+6. **Email templates + external site + SendEmail node wiring.** Create the `ResetPassword` and `ChangeEmail` email templates (section 11). Immediately after both templates exist, wire the SendEmail nodes into `SendResetPasswordEmail` and `SendChangeEmail` server actions via **natural language** (NOT `applyModelApiCode` — that path is blocked for SendEmail node creation). Use a prompt like: *"In the SendResetPasswordEmail server action, remove the Reminder node in the True branch and add a Send Email node wired to the ResetPassword template with these parameters: To = CustomerEmail, CustomerEmail = CustomerEmail, VerificationCode = StartResetPassword.StartResetPasswordResult.VerificationCode, ApplicationName = ApplicationName, CustomerName = TryGetNameByEmail.List.Current.User.Name. Repeat for SendChangeEmail → ChangeEmail template using StartUpdateEmail.StartUpdateEmailResult.VerificationCode."* Mentor CAN create ISendEmailNode via its natural language editing path — confirmed on TestNewWebApp6 (0 errors, 0 warnings). The failure in prior runs was because the prompt asked Mentor to create the node before the templates existed and via applyModelApiCode.
 7. **Wiring Closure & Validation Sweep** — see below. Always run this as
    its own final batch, never skip it.
 
@@ -1712,6 +1737,46 @@ code to a known cause first:
   then re-verify every expression reading an attribute of that entity
   (schema drift is common — see pre-flight step 8).
 
+## Known Manual Steps Required After Skill Run
+
+One element still requires an ODC Studio step after the skill run. The other
+previously-manual step (`SendEmail` node wiring) is now **fully automated** —
+eliminated as of the NewApp investigation (2026-07-21).
+
+### SendEmail nodes — NOW AUTOMATED (no manual step)
+
+Mentor CAN create `ISendEmailNode` nodes via its natural language OML editing
+path. Confirmed on TestNewWebApp6 (0 errors, 0 warnings). The failure in prior
+runs was because earlier batches tried to create them via `applyModelApiCode`
+(sandbox execution path), which is blocked. The fix: prompt Mentor in natural
+language in Batch 6 AFTER the email templates exist (see Batch 6 in Mentor
+Prompt Strategy). Do NOT attempt to create SendEmail nodes before the templates
+are created, and do NOT use `applyModelApiCode` for this specific task.
+
+### `SetIconLibraryClass` — stub created automatically; real action needs ODC Studio
+
+**What the skill does automatically:** Attempts `add_references_to_elements`
+with global key `Kn_hixxDWEm4lMd7mIpycQ*l+LGqvnbjEWzX1y8Hxcx+g`. If the
+reference add fails (the Model API exposes only 20 of OutSystemsUI's elements
+and `SetIconLibraryClass` is not among them), Mentor creates a local client
+action stub named `SetIconLibraryClass` with matching signature and wires it in
+all 4 layout block `OnInitialize` actions. Result: 0 errors, 0 warnings.
+
+**What the stub lacks:** A no-body stub won't actually apply the icon library CSS
+class at runtime. Icons display (Phosphor2.0 is set in the theme), but the
+dynamic CSS class assignment won't fire.
+
+**What to do in ODC Studio (one step):**
+1. Manage Dependencies → OutSystemsUI → enable `SetIconLibraryClass`.
+2. Delete the local stub client action named `SetIconLibraryClass`.
+3. Each of the 4 layout blocks' `OnInitialize` already calls a client action
+   named `SetIconLibraryClass` — update those 4 callers to point to the
+   OutSystemsUI reference action instead of the deleted stub.
+
+This is roughly 5 minutes in ODC Studio. Everything else in the baseline — auth
+flow, themes, role, layout, screens, actions, email templates, SendEmail nodes
+— is fully built by the skill.
+
 ## Key Patterns
 
 - **`app_create` is a truly blank shell** — 0 screens/actions/themes,
@@ -1843,6 +1908,15 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] If any batch crashed and was retried: Post-Crash-Recovery
       Structural Check run before moving to the next batch, not deferred
       to the end
+- [ ] `SendResetPasswordEmail` and `SendChangeEmail` server actions each have a
+      real `SendEmail` node (not a Reminder) wired to their respective templates
+      — confirm after Batch 6 via Mentor inspection. No manual ODC Studio step
+      needed for SendEmail nodes; if missing, re-run Batch 6 prompt with the
+      natural-language wiring instruction.
+- [ ] **Manual ODC Studio step (post-skill, for real icon rendering):**
+      - Real `OutSystemsUI.SetIconLibraryClass` substituted for the local stub:
+        Manage Dependencies → add `SetIconLibraryClass`, delete local stub,
+        update all 4 layout block `OnInitialize` callers to the reference action
 
 ## Related Skills
 
