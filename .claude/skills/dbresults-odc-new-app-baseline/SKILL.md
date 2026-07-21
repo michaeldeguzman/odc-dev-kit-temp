@@ -136,7 +136,9 @@ that already exist.
   - Default layout: `LayoutTopMenu`
   - Default menu: `Menu`
   - Theme values: `PrimaryColor`, `SecondaryColor`, `AppPrimaryColor` — all
-    set to `{BrandColor}`
+    set to `{BrandColor}`; `CreatedWithoutCustomCSS` — set to `"true"` (ODC
+    Studio metadata flag; set it explicitly so the theme matches the
+    reference implementation)
 - **`EmailTheme`** — separate theme used only by the email templates. Apply
   the CSS in [`assets/EmailTheme.css`](assets/EmailTheme.css) as this
   theme's stylesheet (table/list-item widget styles for email-safe
@@ -179,6 +181,14 @@ that already exist.
   reflection against the Model API, produced no real fix, and risked
   leaving the OML in a bad state. Setting `IsUserProvider = true` directly
   is the whole fix; nothing else is needed.
+  **Note on the reference implementation:** A direct OML inspection of
+  `NewApp` (2026-07-21) shows `IsUserProvider = False` with no
+  `ImplicitSelfUserProvider` warning. The warning is suppressed by the
+  presence of a full built-in Login/auth flow — the flag itself is
+  orthogonal. Setting `True` here is still correct (explicit declaration
+  is better than implicit inference), and prior runs confirmed it writes
+  successfully — but do not treat the absence of the warning as proof that
+  the flag was set; it may simply not appear regardless.
 
 ### 4. Client Variables
 
@@ -767,8 +777,10 @@ screen spec below doesn't repeat the values inline.
   state of *every* interactive element on the screen together, not just
   their own button:
   - `UserEmail`'s and `Password`'s own inputs — bind `Enabled` to
-    `Not(IsBuiltInExecuting)` so the fields lock while a login attempt
-    (built-in or external) is in flight, not just the buttons.
+    `ExecutingIndex = -1 and not IsBuiltInExecuting` so the fields lock
+    while EITHER a built-in login attempt OR any external provider login
+    is in flight (confirmed from NewApp: both conditions together, not
+    just one).
   - The built-in login button's `Enabled`/`ButtonLoading` expression
     should reference `Not(IsBuiltInExecuting) And ExecutingIndex = -1`
     (or equivalent) — it disables while EITHER the built-in login OR any
@@ -1304,18 +1316,54 @@ do not need an explicit `Theme` property set; they inherit it from the flow.
 
 ### 13. App-Level Exception Handler
 
-**Do not create a global app-level exception handler.** The reference
-implementation (NewApp) has no flow-level or app-level `OnException`
-configured — a Mentor OML inspection confirmed there are no global event
-handlers defined in the Common flow or anywhere in the application.
-Exception handling is done locally: each screen action and server action
-that performs operations has its own per-action `AllExceptions` exception
-handler node (see `rules/error-handling.md` for the server-action pattern).
+**Create an `OnException` action on the Common flow, and register it as both
+the Common flow's `OnExceptionHandler` and the app's `GlobalExceptionHandler`.**
+This is confirmed present in the reference implementation (NewApp) — a Mentor
+OML inspection confirmed both properties set to the same `OnException` action.
+`UseDefaultThemeExceptionHandler` = `False`.
 
-A prior skill version included a Batch 7 that created a 4-branch app-wide
-handler (Security, Database, Communication, All Exceptions) and registered
-it as the app's exception flow. This was removed when the reference
-implementation was confirmed to have no such handler. Do not recreate it.
+The "No Exception Handling" warning on the Common flow is **not** an expected
+baseline warning — it means this handler is missing. Do NOT classify it as
+accepted; fix it.
+
+#### `OnException` action — 4 exception handlers
+
+| Handler | Exception | AbortTransaction | LogError | Next node |
+|---|---|---|---|---|
+| `AllExceptions` | All Exceptions | True | True | Message (Error) → End |
+| `DatabaseException` | Database Exception | True | True | Message (Error) → End |
+| `CommunicationException` | Communication Exception | True | True | Message (Error) → End |
+| `SecurityException` | Security Exception | True | **False** | If [Logged User?] → branch |
+
+#### Message text per handler
+
+| Handler | Message text |
+|---|---|
+| `AllExceptions` | `"There was a problem. Please contact the administrator"` |
+| `DatabaseException` | `"There was a problem with the database request. Please contact the administrator"` |
+| `CommunicationException` | `"There was a problem communicating with the server. Please try again or contact your administrator"` |
+
+#### SecurityException branch
+
+```
+If [Logged User?]: GetUserId() <> NullTextIdentifier()
+  ├── True  → Destination: InvalidPermissions
+  └── False → Assign [LastRequest]: Client.LastURL = GetBookmarkableURL()
+                → Destination: Login
+```
+
+**Design rationale:**
+- Generic handlers (AllExceptions, DatabaseException, CommunicationException): show error message, abort, log. No redirect — user stays on the current screen with an error toast.
+- SecurityException: no error log (security redirect is expected behavior, not an error). If logged in → `InvalidPermissions` (has session, lacks role). If not logged in → save current URL to `Client.LastURL` (for post-login redirect), then redirect to `Login`.
+
+#### Wiring
+
+After creating the `OnException` action:
+1. Set Common flow's `OnExceptionHandler` property → `OnException`
+2. Set app's `GlobalExceptionHandler` property → same `OnException` action
+3. Set app's `UseDefaultThemeExceptionHandler` = `False`
+
+This handler belongs to the Common flow (in the Common UI flow folder), not to any individual screen or server action. Per-action exception handlers (see `rules/error-handling.md`) are separate and still required on individual server actions.
 
 ## Required References
 
@@ -1506,6 +1554,27 @@ moving to the next:
    confirmed on TestNewWebApp6. The stub is a placeholder; swap it for the
    real `OutSystemsUI.SetIconLibraryClass` in ODC Studio after the skill run
    (see "Known Manual Steps" below).
+
+   **When creating layout block input parameters, four things must be set
+   explicitly for every parameter — Mentor omits all four without being told:**
+
+   - **IsMandatory**: every parameter must be `IsMandatory=False`. Mentor
+     creates parameters as mandatory by default — this causes a hard error
+     whenever a screen uses the layout block without supplying all values.
+     Confirmed gap: TestNewWebApp7 Rev 3–5 appeared fixed but all parameters
+     remained mandatory; callers got an error on every new screen.
+   - **Default value**: `HasFixedHeader` → `True`; `EnableAccessibilityFeatures`
+     → `False`; `ExtendedClass` → `""`. `MenuBehavior`, `BackgroundColor`, and
+     `Padding` have no default (leave unset). Mentor silently skips defaults
+     unless explicitly instructed — confirmed gap across TestNewWebApp5–7.
+   - **Description**: every parameter must have a non-empty description. Use
+     the text from section 6's parameter tables verbatim — do not leave any
+     parameter description blank.
+   - **Data type for `MenuBehavior`**: must be `SideMenuBehavior Identifier`
+     (the `SideMenuBehavior` static entity from `OutSystemsUI`), NOT `Text`.
+     Mentor defaults to `Text` for Identifier-typed parameters when not told
+     otherwise — confirmed on TestNewWebApp7. `Text` breaks the static-entity
+     binding; the Identifier type is required.
 3. **Screens, excluding UserProfile** (Login → RecoverPasswordRequest →
    RecoverPasswordReset → ChangePassword → InvalidPermissions). Build
    `LoginOnClick`/`LoginProviderOnClick` to the full flow in section 8 —
@@ -1519,6 +1588,12 @@ moving to the next:
    uses `LayoutBlank` — explicitly set `EnableAccessibilityFeatures = False`
    and `ExtendedClass = ""` on each screen's layout instance (section 6);
    don't leave either blank.
+   **All 5 screens must have the `{App}` role attached** (see section 8).
+   `AnonymousAccess = true` overrides the role check at runtime — anonymous
+   screens can safely carry the role, and the reference implementation
+   (NewApp) confirms they do. Set the role on Login, RecoverPasswordRequest,
+   RecoverPasswordReset, and InvalidPermissions now; ChangePassword gets it
+   when created in this batch too. Do NOT leave any screen role-less.
 4. **UserProfile screen, on its own.** Disproportionately complex relative
    to the other five screens combined (13 local vars, 10 screen actions,
    a screen aggregate, a verification-code + countdown-timer flow) — a
@@ -1533,7 +1608,8 @@ moving to the next:
    confirmed publish-time error (section 6), not just a style nit.
 5. **Server actions + client actions** (Authentication and UserActions folders) — wire ALL previously-stubbed screen logic from batches 3 and 4, including UserProfile's. Do **NOT** create a `Check{App}Role`/`Has{App}Role` wrapper client action — the `{App}` role's built-in check function is used directly in `LoginOnClick` (see section 8, step 4). Do **NOT** add SendEmail nodes yet — the email templates don't exist until Batch 6.
 6. **Email templates + external site + SendEmail node wiring.** Create the `ResetPassword` and `ChangeEmail` email templates (section 11). Immediately after both templates exist, wire the SendEmail nodes into `SendResetPasswordEmail` and `SendChangeEmail` server actions via **natural language** (NOT `applyModelApiCode` — that path is blocked for SendEmail node creation). Use a prompt like: *"In the SendResetPasswordEmail server action, remove the Reminder node in the True branch and add a Send Email node wired to the ResetPassword template with these parameters: To = CustomerEmail, CustomerEmail = CustomerEmail, VerificationCode = StartResetPassword.StartResetPasswordResult.VerificationCode, ApplicationName = ApplicationName, CustomerName = TryGetNameByEmail.List.Current.User.Name. Repeat for SendChangeEmail → ChangeEmail template using StartUpdateEmail.StartUpdateEmailResult.VerificationCode."* Mentor CAN create ISendEmailNode via its natural language editing path — confirmed on TestNewWebApp6 (0 errors, 0 warnings). The failure in prior runs was because the prompt asked Mentor to create the node before the templates existed and via applyModelApiCode.
-7. **Wiring Closure & Validation Sweep** — see below. Always run this as
+7. **OnException handler.** Create the `OnException` action in the Common flow per section 13 (4 exception handlers, correct message text, SecurityException branch to Login/InvalidPermissions with Client.LastURL save). Register it as both the Common flow's `OnExceptionHandler` AND the app's `GlobalExceptionHandler` (with `UseDefaultThemeExceptionHandler = False`). Verify via `GetValidationMessages` that the "No Exception Handling" warning on the Common flow is gone after this batch — if it persists, the wiring landed on the wrong scope. This handler was incorrectly removed from an earlier skill version based on a wrong read of NewApp; the Mentor OML inspection on 2026-07-21 confirmed it IS present in the reference implementation.
+8. **Wiring Closure & Validation Sweep** — see below. Always run this as
    its own final batch, never skip it.
 
 Prompt each batch with the exact names, types, and logic from the
@@ -1575,6 +1651,12 @@ actions, or lifecycle hooks:
 > anything created in *this* batch specifically, and wire or remove them
 > now — do not defer to a later batch or assume they'll "clear once
 > wired," because unless you verify it in this same turn, they won't.
+> **Every named element created in this batch must have a non-empty
+> Description** — this includes screens, web blocks, server actions,
+> client actions, AND their input/output parameters. A blank description
+> on a parameter is the same class of defect as a blank description on an
+> action (see `rules/descriptions.md`). Set descriptions at creation time;
+> do not defer to a later batch.
 
 ### Avoiding stub-naming collisions across batches
 
@@ -1628,17 +1710,29 @@ possible:
   positive rather than a fix-now item or a business-logic-not-ready
   item.
 
-## Wiring Closure & Validation Sweep (Batch 7)
+## Wiring Closure & Validation Sweep (Batch 8)
 
-Always run this as a final, dedicated batch after the email templates and
-external site batch — never treat "some warnings are expected at this
-stage" as a reason to skip it.
+Always run this as a final, dedicated batch after the OnException handler
+batch — never treat "some warnings are expected at this stage" as a reason
+to skip it.
 A prior run assumed unresolved warnings would "clear once wired" without
 ever re-checking, and dozens survived all the way to publish.
 
 1. Have Mentor call `GetValidationMessages(true)` (or equivalent full
    validation) across the whole eSpace and list every remaining warning.
-2. Classify each one:
+2. **Screen role audit (run this BEFORE classifying warnings):** Verify
+   all 6 Common-flow screens have the `{App}` role attached — including
+   the 4 anonymous ones (Login, RecoverPasswordRequest, RecoverPasswordReset,
+   InvalidPermissions). The expected result is role present on all 6.
+   If any screen is missing the role, **add it**. If the audit output says
+   anonymous screens "shouldn't" have a role — **ignore that and keep the
+   role**: `AnonymousAccess = true` overrides the role check at runtime, so
+   anonymous screens carry the role harmlessly, and the reference
+   implementation (NewApp) confirms all 6 screens have it. Do NOT remove
+   the role from any screen during this batch. This is a known Batch 7
+   anti-pattern — it was done in TestNewWebApp6 Batch 7 and again in
+   TestNewWebApp7 Batch 7 despite the rule — both were wrong.
+3. Classify each warning:
    - **Fix now** — a widget/action/variable that should be connected and
      isn't (the common case per the mandatory wiring instruction above).
      Wire it in this same batch.
@@ -1657,11 +1751,6 @@ ever re-checking, and dozens survived all the way to publish.
    - **Remove** — dead scaffolding that serves no purpose for this app;
      confirm with the user before deleting anything from the documented
      spec (sections 1–13 above) rather than silently trimming it.
-   - **Do NOT remove roles from anonymous screens** — all 6 screens have
-     the `{App}` role attached, including Login, RecoverPasswordRequest,
-     RecoverPasswordReset, and InvalidPermissions. Removing the role from
-     these screens is incorrect (see section 8). This is a known Batch 7
-     anti-pattern from TestNewWebApp6.
 3. Report the final classified list to the user: what was wired, what's
    expected-and-why, what (if anything) was removed. Don't report "0
    errors" as equivalent to "0 warnings" or as "done" — the two are
@@ -1819,7 +1908,10 @@ After each Mentor batch, confirm via the matching context tool:
       theme object exists
 - [ ] `context_roles`: the confirmed application role exists
 - [ ] `context_screens`: 6 screens exist with correct
-      `AnonymousAccess` flags and layouts
+      `AnonymousAccess` flags and layouts; **all 6 have the `{App}` role
+      attached** (including Login, RecoverPasswordRequest,
+      RecoverPasswordReset, InvalidPermissions) — verify the `roles`
+      field in the `context_screens` result is non-empty for every screen
 - [ ] `context_actions`: 3 server actions + 5 client actions — server: `SendResetPasswordEmail` (Authentication), `SendChangeEmail` (UserActions), `UpdateUser` (UserActions); client: `DoLogin`, `DoLogout`, `SendResetPasswordEmail` (Authentication), `SendChangeEmail`, `UpdateUser` (UserActions). No `Check{App}Role`/`Has{App}Role` wrapper action.
 - [ ] Layout blocks and common blocks aren't directly enumerable via
       `context_actions`/`context_screens` in all tenants — if they don't
@@ -1831,8 +1923,13 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `MainFlow` exists and is empty (0 screens, 0 blocks, 0 exception
       handler) — confirm via Mentor/Service Studio, not just
       `context_screens` (an empty flow won't list anything to check)
-- [ ] No global `OnException` handler exists — section 13 confirms the
-      reference implementation uses per-action exception handling only
+- [ ] `OnException` action exists in Common flow with 4 handlers
+      (AllExceptions, DatabaseException, CommunicationException,
+      SecurityException) per section 13; Common flow's `OnExceptionHandler`
+      property → `OnException`; app's `GlobalExceptionHandler` → same
+      action; `UseDefaultThemeExceptionHandler = False`
+- [ ] "No Exception Handling" warning on Common flow is **absent** after
+      Batch 7 — if present, the `OnExceptionHandler` wiring didn't land
 - [ ] 0 errors in validation after each batch before moving to the next
 - [ ] `eSpace.IsUserProvider` is `true` — no `ImplicitSelfUserProvider`
       warning
@@ -1897,11 +1994,15 @@ After each Mentor batch, confirm via the matching context tool:
 - [ ] `Menu` block has no `ActiveItem`/`ActiveSubItem` parameters at
       baseline (they're deferred until real menu items exist — see
       section 7)
-- [ ] After Batch 7 (Wiring Closure & Validation Sweep): 0 "Unused
+- [ ] After Batch 8 (Wiring Closure & Validation Sweep): 0 "Unused
       Action"/"Unused Element"/"Unused Local Variable"/"Unused Input
       Parameter"/"Unused Aggregate" warnings remain, other than ones
       explicitly classified as expected-at-baseline and reported to the
       user by name
+- [ ] All action/screen input and output parameters have non-empty
+      Descriptions (spot-check `context_actions` — parameters with empty
+      description are a `rules/descriptions.md` violation, same as
+      blank-description actions)
 - [ ] Pre-Publish Structural Sanity Check run once before the first
       publish attempt: no duplicate folder names, no orphaned
       action-folder assignments, `(System)` reference hash non-zero

@@ -162,6 +162,45 @@ Re-scaffold of TestNewWebApp7 (prior session's work lost to Mentor session GC �
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp7
 
+### TestNewWebApp7 — gap fix (`402cb58e-895a-4b97-8494-b7bfa914b667`) — 2026-07-21
+
+Gap fixes after comprehensive comparison against NewApp reference. 3 gaps fixed in one Mentor batch.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Role added to 4 anonymous screens (Login, RecoverPasswordRequest, RecoverPasswordReset, InvalidPermissions) | Rev 2 → 3 | Batch 7 had incorrectly removed the role — AnonymousAccess=true overrides role at runtime but role must still be present per reference |
+| OnException handler created on Common flow (4 branches: AllExceptions/DatabaseException/CommunicationException/SecurityException) | Rev 2 → 3 | Wired as Common flow OnExceptionHandler + app GlobalExceptionHandler; UseDefaultThemeExceptionHandler=False |
+| Descriptions added to 18 action parameters across 9 actions + RecoverPasswordReset input parameters | Rev 2 → 3 | Prior batches set action-level descriptions but not parameter-level descriptions |
+| Validation result | — | 0 errors, 1 pre-existing warning (JsSetInterval TimerHandle unused element — present before this session) |
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp7 (revision 3, 2026-07-21T05:15:01Z)
+
+### TestNewWebApp7 — layout block parameter fix (`402cb58e-895a-4b97-8494-b7bfa914b667`) — 2026-07-21
+
+Fix Layouts flow web block parameter gaps identified by comparing against NewApp reference.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Default values set on 7 parameters (HasFixedHeader=True, ExtendedClass="" across LayoutBlank/TopMenu/SideMenu/Base) | Rev 3 → 5 | Mentor silently omits defaults without explicit instruction — confirmed across TestNewWebApp5-7 |
+| Descriptions added to 6 blank parameters on LayoutSideMenu + LayoutBase | Rev 3 → 5 | LayoutBlank + LayoutTopMenu already had descriptions; LayoutSideMenu/LayoutBase missed them |
+| LayoutSideMenu.MenuBehavior type corrected: Text → SideMenuBehavior Identifier | Rev 3 → 5 | Wrong type breaks static-entity binding; Mentor defaults to Text for Identifier-typed params |
+| Validation result | — | 0 errors, 2 warnings: pre-existing JsSetInterval TimerHandle (Unused Element) + Icon library compatibility (surfaced when SideMenuBehavior reference added — tenant-level OutSystemsUI version issue, unfixable via Model API) |
+
+**SKILL.md changes this session:** Section 13 rewritten (OnException spec); Batch 7 restored as OnException batch; Batch 8 screen role audit added; parameter descriptions added to mandatory wiring instruction; `CreatedWithoutCustomCSS` theme value added; `IsUserProvider` reference note added; Login input Enabled binding corrected.
+
+See `notes/2026-07-21-newapp-gap-analysis.md` for the full gap analysis report.
+
+### TestNewWebApp7 — layout block IsMandatory fix (`402cb58e-895a-4b97-8494-b7bfa914b667`) — 2026-07-21
+
+Fix: all layout block input parameters were still `IsMandatory=True` despite the Rev 3→5 fix claiming to set defaults. Caller gets a hard error on every new screen that uses these blocks.
+
+| Build | Revision | Notes |
+|---|---|---|
+| IsMandatory=False set on all 14 parameters across 5 layout blocks + EnableAccessibilityFeatures default=False added | Rev 5 → 6 | Re-inspection confirmed Rev 5 OML still had all parameters mandatory with no defaults — prior fix session's changes did not persist |
+| Validation result | — | 0 errors, 2 pre-existing warnings (Icon library compatibility + JsSetInterval TimerHandle) |
+
+**SKILL.md change:** Batch 2 prompt updated — "three things" → "four things"; added `IsMandatory=False` as first explicit requirement; corrected `EnableAccessibilityFeatures` default from "no default" to `False`.
+
 ### TestNewWebApp6 — follow-up investigation (`9ee7bc33-0108-4b8a-8556-2ce6a7e72c77`) — 2026-07-21
 
 Investigation into ISendEmailNode and SetIconLibraryClass automation. Used NewApp (`88f79d25-6cbf-4178-b804-199303656da4`) as reference.
