@@ -877,7 +877,13 @@ AllExceptions handler → UpdateUserResult.Success = False → End
 
 Both templates share the same four input parameters — **all mandatory**: `ApplicationName` (Text), `CustomerName` (Text), `CustomerEmail` (Email), `VerificationCode` (Text).
 
-Templates inherit theme from the `Emails` flow — do not set explicit template-level theme.
+**CSS layers — two properties, complementary:**
+
+1. **Emails flow `Theme` property** → `EmailTheme`. Set at Batch 1. This applies the EmailTheme stylesheet (table/list widget CSS — see [`assets/EmailTheme.css`](assets/EmailTheme.css)) to all templates in the flow.
+2. **Per-template `StyleSheet` property** → leave empty (null). Do NOT set it on either template. The reference (NewApp) has no per-template stylesheet on either `ResetPassword` or `ChangeEmail`.
+3. **Template-level `Theme` property** → do not set. Templates inherit from the Emails flow.
+
+The utility CSS classes used in the widget trees (`heading2`, `btn-primary`, `email-logo`, `margin-bottom-m`, `text-neutral-7`, `font-size-xs`, `email-separator`, `email-max-width`, etc.) are injected by OutSystemsUI at email send time as part of its own email CSS bundle. No ODC model property needs to be set for these — they are available automatically when OutSystemsUI is a dependency.
 
 Both templates use the same outer container structure:
 
