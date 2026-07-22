@@ -46,10 +46,8 @@ auditing the full spec. Anchors below match the batch numbers in
 
 | Name | Purpose |
 |---|---|
-| `Logo` | App logo on login screen and header |
-| `User` | Placeholder avatar for users without a photo |
-
-Use a 1×1 transparent GIF (not PNG — no CRC to get wrong).
+| `Logo` | App logo on login screen and header | Use [`assets/Logo.png`](assets/Logo.png) verbatim — extracted from NewApp reference 2026-07-23. Do not substitute a placeholder. |
+| `User` | Placeholder avatar for users without a photo | Use [`assets/User.png`](assets/User.png) verbatim — extracted from NewApp reference 2026-07-23. Do not substitute a placeholder. |
 
 ### 6. Layout Blocks (in Layouts flow)
 
