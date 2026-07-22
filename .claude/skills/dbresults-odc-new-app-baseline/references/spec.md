@@ -176,7 +176,79 @@ Parameters:
 
 Client Actions: `OnInitialize`, `OnReady`, `OnDestroy`, `SkipToContentOnClick`.
 
-Placeholders: `Navigation`, `Header` (header-navigation), `Breadcrumbs`, `Title`, `Actions`, `MainContent`, `Footer`.
+Widget tree — create every widget in this exact structure. All content zones are `Placeholder` (WebBlockZone) widgets, **never** plain Containers:
+
+```
+LayoutWrapper  [Container]
+  Style: "layout layout-side"
+         + If(HasFixedHeader, " fixed-header", "")
+         + " "
+         + MenuBehavior
+         + If(not EnableAccessibilityFeatures, "", " has-accessible-features")
+         + If(ExtendedClass = "", "", " " + ExtendedClass)
+  │
+  ├── (unnamed Link)
+  │     Style: "skip-nav", OnClick → SkipToContentOnClick
+  │     Extended props:
+  │       aria-label = "Skip to Content (Press Enter)"
+  │       data-showskipcontent = If(EnableAccessibilityFeatures, "true", "false")
+  │     └── (unnamed Text) — "Skip to Content (Press Enter)"
+  │
+  ├── (unnamed AdvancedHtml, Tag: aside)
+  │     Extended props: role="complementary", class="aside-navigation"
+  │     └── Navigation  [Placeholder]
+  │           Style: (none)
+  │           EffectiveWidth: UserDefined (fill parent)
+  │           └── [WebBlock: Menu from Common]   (ActiveItem=null, ActiveSubItem=null)
+  │
+  └── (unnamed Container)
+        Style: "main"
+        │
+        ├── Header3  [AdvancedHtml, Tag: header]
+        │     Extended props: role="banner", class="header"
+        │     └── (unnamed Container)
+        │           Style: "header-top ThemeGrid_Container"
+        │           └── (unnamed Container)
+        │                 Style: "header-content display-flex"
+        │                 ├── [WebBlock: MenuIcon from Common]   (no params)
+        │                 ├── [WebBlock: ApplicationTitle from Common]   (no params)
+        │                 └── Header  [Placeholder]
+        │                       Style: "header-navigation"
+        │                       EffectiveWidth: InlineBlock   ← NOT UserDefined
+        │                       (empty — no default content)
+        │
+        └── Content  [Container]
+              Style: "content"
+              │
+              ├── MainContentWrapper  [Container]
+              │     Style: "main-content ThemeGrid_Container"
+              │     Extended props: role="main"
+              │     │
+              │     ├── Breadcrumbs  [Placeholder]
+              │     │     Style: "content-breadcrumbs placeholder-empty"
+              │     │     EffectiveWidth: UserDefined (fill parent)
+              │     │
+              │     ├── (unnamed Container)
+              │     │     Style: "content-top display-flex align-items-center"
+              │     │     ├── Title  [Placeholder]
+              │     │     │     Style: "content-top-title heading1 placeholder-empty"
+              │     │     │     EffectiveWidth: UserDefined
+              │     │     └── Actions  [Placeholder]
+              │     │           Style: "content-top-actions placeholder-empty"
+              │     │           EffectiveWidth: UserDefined
+              │     │
+              │     └── MainContent  [Placeholder]
+              │           Style: "content-middle"
+              │           EffectiveWidth: UserDefined
+              │
+              └── (unnamed AdvancedHtml, Tag: footer)
+                    Extended props: role="contentinfo", class="content-bottom"
+                    └── Footer  [Placeholder]
+                          Style: "footer ThemeGrid_Container placeholder-empty"
+                          EffectiveWidth: UserDefined
+```
+
+> **Key differences from LayoutTopMenu:** adds an `<aside>` sidebar before "main" with a `Navigation` placeholder (default: Menu block); the `Header` placeholder has **no default content** (unlike LayoutTopMenu which has Menu as default); the skip-nav link is a direct child of `LayoutWrapper` (not inside the header AdvancedHtml).
 
 #### LayoutBase
 
@@ -190,7 +262,52 @@ Parameters:
 
 Client Actions: `OnInitialize`, `OnReady`, `OnDestroy`, `SkipToContentOnClick`.
 
-Placeholders: `Header` (header-navigation), `MainContent` (content-middle — contains a `LayoutBaseSection` instance by default).
+Widget tree — create every widget in this exact structure. Content zones are `Placeholder` (WebBlockZone) widgets, **never** plain Containers:
+
+```
+LayoutWrapper  [Container]
+  Style: "layout layout-blank"
+         + If(HasFixedHeader, " fixed-header", "")
+         + " "
+         + If(not EnableAccessibilityFeatures, "", " has-accessible-features")
+         + If(ExtendedClass = "", "", " " + ExtendedClass)
+  │
+  └── (unnamed Container)
+        Style: "main"
+        │
+        ├── Header2  [AdvancedHtml, Tag: header]
+        │     Extended props: role="banner", class="header"
+        │     │
+        │     ├── (unnamed Link)
+        │     │     Style: "skip-nav", OnClick → SkipToContentOnClick
+        │     │     Extended props:
+        │     │       aria-label = "Skip to Content (Press Enter)"
+        │     │       data-showskipcontent = If(EnableAccessibilityFeatures, "true", "false")
+        │     │     └── (unnamed Text) — "Skip to Content (Press Enter)"
+        │     │
+        │     └── (unnamed Container)
+        │           Style: "header-top ThemeGrid_Container"
+        │           └── (unnamed Container)
+        │                 Style: "header-content display-flex"
+        │                 ├── [WebBlock: MenuIcon from Common]   (no params)
+        │                 ├── [WebBlock: ApplicationTitle from Common]   (no params)
+        │                 └── Header  [Placeholder]
+        │                       Style: "header-navigation"
+        │                       EffectiveWidth: InlineBlock   ← NOT UserDefined
+        │                       └── [WebBlock: Menu from Common]   (ActiveItem=null, ActiveSubItem=null)
+        │
+        └── Content  [Container]
+              Style: "content"
+              └── MainContentWrapper  [Container]
+                    Style: "main-content"   ← NO ThemeGrid_Container (unlike LayoutTopMenu/SideMenu)
+                    Extended props: role="main"
+                    └── MainContent  [Placeholder]
+                          Style: "content-middle"
+                          EffectiveWidth: UserDefined
+                          └── [WebBlock: LayoutBaseSection from Layouts]   (all params null)
+```
+
+> **Key differences from LayoutTopMenu:** CSS class is `layout-blank` not `layout-top`; `MainContentWrapper` has **no** `ThemeGrid_Container` class; only 2 placeholders (`Header` + `MainContent`) — no `Breadcrumbs`, `Title`, `Actions`, or `Footer`; `MainContent` default content is a `LayoutBaseSection` block instance.
 
 #### LayoutBaseSection
 
