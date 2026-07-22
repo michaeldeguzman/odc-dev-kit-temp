@@ -535,7 +535,7 @@ All 6 screens carry the `{App}` role — including the 4 anonymous-access screen
 
 Every screen's layout block instance must have all parameter arguments explicitly set (see section 6 call-site rule).
 
-- **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank` (`EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). **Not the default screen.**
+- **`Login`** — `AnonymousAccess = true`, layout `LayoutBlank` (`EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). Title: `"Log in"` (two words, with space). **Not the default screen.**
 
   Local vars: `UserEmail`, `Password`, `IsPasswordVisible`, `ShowBuiltInProvider`, `ShowExternalProvider`, `IsBuiltInExecuting` (Boolean), `ExecutingIndex` (Integer, default **`-1`** — not `0`), `ExternalIdentityProviders`.
 
@@ -573,7 +573,7 @@ Every screen's layout block instance must have all parameter arguments explicitl
           - Icon placeholder: Link (OnClick `OnTogglePasswordVisibility`) → If `PasswordVisibile` (`Condition: IsPasswordVisible`, `DesignMode: ShowTrueOrPreview`):
             - True: Icon `eye-slash`, regular, Style `"icon"`, FontSize
             - False: Icon `eye`, regular, Style `"icon"`, FontSize
-          - Input placeholder: Input `Input_Password` (Style `"form-control login-password"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, InputType Password, Variable `Password`, Enabled `ExecutingIndex = -1 and not IsBuiltInExecuting`, Mandatory True, tabindex=2)
+          - Input placeholder: Input `Input_Password` (Style `"form-control login-password"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, InputType Password, Variable `Password`, Enabled `ExecutingIndex = -1 and not IsBuiltInExecuting`, Mandatory True, **MaxLength: null (no limit)**, tabindex=2)
       - Container `"margin-top-l"` → Container (`CustomStyle: text-align: right`) → Link (OnClick → navigate `RecoverPasswordRequest`, tabindex=3, aria-label `"Forgot your password? Click here to recover it"`) → Text `"Forgot your password?"`
     - Container `"login-button margin-top-l"` → `ButtonLoadingInstance` (`ButtonLoading` block, `IsLoading = IsBuiltInExecuting`, `ExtendedClass = "full-width"`):
       - Button placeholder: Button (`"btn btn-primary"`, IsDefault/IsSubmit **True**, Enabled `ExecutingIndex = -1`, OnClick `LoginOnClick` ValidateAndContinue, tabindex=4) → Container `"osui-btn-loading__spinner-animation"` + Text `"Log in"`
@@ -655,7 +655,7 @@ Every screen's layout block instance must have all parameter arguments explicitl
       - Label placeholder: Label (Target `Input_NewPassword`) → Text `"New password"`
       - Input placeholder: InputWithIcon block (`AlignIconRight = True`):
         - Icon placeholder: Link (**no validation**, OnClick `OnToggleNewPasswordVisibility`) → If `"PasswordVisibile"` (Condition `IsPasswordVisible`, ShowTrueOrPreview): True → Icon (eye-slash, `"icon"`, FontSize) / False → Icon (eye, `"icon"`, FontSize)
-        - Input placeholder: Input `Input_NewPassword` (`"form-control login-password"`, `CustomStyle: padding-right: var(--space-xl)`, InputType Password, Variable `NewPassword`, Mandatory True, MaxLength 256, Enabled True, tabindex=2)
+        - Input placeholder: Input `Input_NewPassword` (`"form-control login-password"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, InputType Password, Variable `NewPassword`, Mandatory True, MaxLength 256, Enabled True, tabindex=2)
 
     - **B4 — PasswordPolicy block**: BlockInstance `PasswordPolicy` (`Password → NewPassword`, `Compliant → PasswordPolicyCompliant` (event), `IsValid → IsValid`)
 
@@ -663,7 +663,7 @@ Every screen's layout block instance must have all parameter arguments explicitl
       - Label placeholder: Label (Target `Input_ConfirmPassword`) → Text `"Confirm password"`
       - Input placeholder: InputWithIcon block (`AlignIconRight = True`):
         - Icon placeholder: Link (**no validation**, OnClick `OnToggleConfirmPasswordVisibility`) → If `"ConfirmPasswordVisibile"` (Condition `IsConfirmPasswordVisible`, ShowTrueOrPreview): True → Icon (eye-slash, `"icon"`, FontSize) / False → Icon (eye, `"icon"`, FontSize)
-        - Input placeholder: Input `Input_ConfirmPassword` (`"form-control login-password"`, `CustomStyle: padding-right: var(--space-xl)`, InputType Password, Variable `ConfirmPassword`, Mandatory True, MaxLength 256, Enabled True, OnChange `Input_ConfirmPasswordOnChange`, tabindex=3)
+        - Input placeholder: Input `Input_ConfirmPassword` (`"form-control login-password"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, InputType Password, Variable `ConfirmPassword`, Mandatory True, MaxLength 256, Enabled True, OnChange `Input_ConfirmPasswordOnChange`, tabindex=3)
 
     **C — Submit button** (`"login-button margin-top-l"`):
     - ButtonLoading block (`IsLoading = IsExecuting`, `ExtendedClass = "full-width"`):
@@ -680,7 +680,7 @@ Every screen's layout block instance must have all parameter arguments explicitl
   - Toggle Links must have **no validation** — eye icons only toggle visibility, they must not fire form validation
   - Button `Enabled = IsButtonEnabled` (not `True`, not `IsButtonEnabled and not IsExecuting` — ButtonLoading handles the loading state display)
 
-- **`ChangePassword`** — requires login, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). Aggregate: `GetUserDetail` (Source: User, Filter: `User.Id = GetUserId()`, MaxRecords: 1).
+- **`ChangePassword`** — requires login, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). **No screen aggregates.**
 
   Local vars: `OldPassword`, `NewPassword`, `ConfirmPassword`, `IsPasswordVisible` (Boolean, False), `IsConfirmPasswordVisible` (Boolean, False), `IsButtonEnabled` (Boolean, False), `IsExecuting` (Boolean, False), `IsNewPasswordCompliant` (Boolean).
 
@@ -693,9 +693,11 @@ Every screen's layout block instance must have all parameter arguments explicitl
   | `PasswordPolicyCompliant` | `PasswordPolicy` `Compliant` event | `IsNewPasswordCompliant = IsValid` → `SetIsButtonEnabled`. |
   | `OnToggleNewPasswordVisibility` | Eye icon | Toggles `IsPasswordVisible` → `ShowPassword(Input_NewPassword.Id)`. |
   | `OnToggleConfirmPasswordVisibility` | Eye icon | Toggles `IsConfirmPasswordVisible` → `ShowPassword(Input_ConfirmPassword.Id)`. |
-  | `SetNewPasswordOnClick` | "Set new password" button | (1) If `Form.Valid` false → end. (2) `IsExecuting = True`. (3) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Password and Confirm password don't match."`, `IsExecuting = False` → end. (4) Call system `ChangePassword(OldPassword, NewPassword, Username = GetUserDetail.List.Current.User.Email)`. (5) Success → show `"Password successfully changed!"` → navigate to `UserProfile`. `InvalidCredentials`: mark `Input_OldPassword.Valid = False`. `PasswordComplexityPolicyFailed`: `Input_NewPassword.Valid = False`, `IsButtonEnabled = False`. `TooManyFailedAttempts`: show timeout message. Other: show unknown error. **No `AllExceptions` handler.** |
+  | `SetNewPasswordOnClick` | "Set new password" button | (1) If `Form.Valid` false → end. (2) `IsExecuting = True`. (3) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Password and Confirm password don't match."`, `IsExecuting = False` → end. (4) Call `GetUserProfile` (system) → Call system `ChangePassword(OldPassword, NewPassword, Username = GetUserProfile.UserInfo.Email)`. (5) Success → show `"Password successfully changed!"` → navigate to `UserProfile`. `InvalidCredentials`: mark `Input_OldPassword.Valid = False`. `PasswordComplexityPolicyFailed`: `Input_NewPassword.Valid = False`, `IsButtonEnabled = False`. `TooManyFailedAttempts`: show timeout message. Other: show unknown error. **No `AllExceptions` handler.** |
 
   **Layout** (LayoutTopMenu placeholders):
+
+  - **Header placeholder:** `Menu` block instance directly in Header (no wrapper container). `ActiveItem` and `ActiveSubItem`: **not set** (leave both parameters unbound — do NOT bind to `-1`).
 
   - **Breadcrumbs:** Link (→ UserProfile, no validation) → Icon (caret-left, `"icon"`, FontSize, regular) + Text `"Back to profile"` (CustomStyle: `margin-left: 5px;`)
 
@@ -726,7 +728,7 @@ Every screen's layout block instance must have all parameter arguments explicitl
 
 - **`InvalidPermissions`** — `AnonymousAccess = true`, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). No local vars, no aggregates, no screen actions.
 
-  **Header placeholder:** Container (`"full-height display-flex align-items-center justify-content-flex-end"`, fill parent) → `UserInfo` block only. **No Menu block.**
+  **Header placeholder:** Container (unnamed, `"full-height display-flex align-items-center justify-content-flex-end"`, fill parent) → `UserInfo` block only. **No Menu block. Do NOT name this container** (e.g. "MenuPlaceholder") — it must remain unnamed.
 
   **MainContent:** `BlankSlate` block (`FullHeight = True`, `ExtendedClass = null/default`):
   - **Icon placeholder:** Icon (`lock`, weight `regular`, size `FontSize`, style `"icon text-neutral-4"`)

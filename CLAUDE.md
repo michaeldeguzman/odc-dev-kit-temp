@@ -351,6 +351,27 @@ Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 17)
 
+### TestNewWebApp9 — screen widget tree fix (`48387023-1192-4dd6-87f8-9456df0f7964`) — 2026-07-23
+
+7-step workflow applied to all 6 Common flow screens against NewApp reference. Gap report saved to `notes/2026-07-23-screens-gap-report.md`.
+
+**Screens (Common flow) — Rev 17 → 18:**
+
+| Screen | Discrepancies | Key fixes |
+|---|---|---|
+| Login | 2 | Input_Password MaxLength → null (no limit); screen title "Login" → "Log in" |
+| RecoverPasswordRequest | 1 | Stale "label" Text node removed from AnimatedLabel Label placeholder |
+| RecoverPasswordReset | 5 | Orphaned Container+AdvancedHtml h5 removed; login-logo style+CustomStyle added to first inner container; stale "label" nodes removed from 4 AnimatedLabel instances; InputWithIcon full CustomStyle on NewPassword+ConfirmPassword |
+| ChangePassword | 4 | MenuPlaceholder wrapper removed from Header (Menu now direct child); Menu params ActiveItem/ActiveSubItem cleared to null/unset; stale "label" nodes removed from 3 AnimatedLabel instances; unused GetUserDetail aggregate deleted (SetNewPasswordOnClick rewired to GetUserProfile.UserInfo.Email) |
+| InvalidPermissions | 1 | Header container name "MenuPlaceholder" cleared (unnamed) |
+| UserProfile | 2 | NameInput MaxLength → null; Form renamed "ProfileForm" → "ProfileDetailsForm" |
+
+**spec.md updated:** Login title, Input_Password MaxLength null, RecoverPasswordReset InputWithIcon full CustomStyle (B3+B5), ChangePassword no-aggregate, SetNewPasswordOnClick uses GetUserProfile, Header Menu direct (no wrapper), InvalidPermissions unnamed header.
+
+**Key pattern:** ChangePassword only had 3 AnimatedLabel instances (not 4 as initially estimated from the reference). GetUserDetail aggregate removal required Mentor to reroute SetNewPasswordOnClick Username from the deleted aggregate to GetUserProfile system action.
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 18, 2026-07-23)
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
