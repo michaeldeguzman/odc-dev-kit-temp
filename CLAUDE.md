@@ -262,6 +262,23 @@ Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestMike (revis
 
 **Search:** Employees screen filters on both `FirstName` and `LastName` (OR'd search).
 
+### TestMike2 (`27a7c9b1-be32-4e21-80e3-f64b940ef7c1`) — Account CRUD + scaffold screens — 2026-07-22
+
+New app with auth baseline (revision 2). Session involved multiple GC recoveries before completing CRUD wrappers and screens.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Shared infra (EntityActionResult/Message structures, MessageType static entity, ProcessingException, 3 EntityActionResult helpers in folder EntityActionResult, Session_GetNormalizedSessionUserId Function in folder Session) + Account entity (Id, AccountName/100, 6 audit fields — all IsMandatory=False) + 4 CRUD actions (Account_Validate/Upsert/GetCanRemove/Remove in folder Account) + auto-layout on all 8 actions | Rev 2 → 3 | 0 errors, 3 expected warnings. **First CRUD attempt lost to Mentor session GC** — re-run succeeded. |
+| Accounts list screen + AccountDetail create/edit screen (both MainFlow, TestMike2 role, LayoutTopMenu). GetAccounts: Account inner-join User, AccountName keyword search, IsActive=True filter, dynamic sort, pagination. GetAccountById (MaxRecords=1) + GetUsers on detail. SaveDetail → Account_Upsert. DeleteOnClick → Account_Remove. | OML only — not published | 0 errors, 1 pre-existing warning (icon migration). Publish blocked by persistent OS-BEW-CODE-50008 (platform build engine internal error — 4 attempts all failed). OML confirmed correct via Mentor inspection: both screens present in session. |
+
+**Current deployed state:** revision 3 (CRUD wrappers + shared infra). Screens are OML-only — NOT in the deployed revision.
+
+**To unblock screens publish:** retry `publish_start` with Mentor session `abd3e36f-c8be-4d19-8830-7c6f607589e3` when platform OS-BEW-CODE-50008 resolves, or open TestMike2 in ODC Studio and 1-Click Publish. The OML contains both screens correctly.
+
+**Account NameField:** `AccountName` (Text, max 100). Validation enforces required at app level (entity field IsMandatory=False with default "").
+
+Deployed to Development (revision 3 only): https://dbresults-rd-dev.outsystems.app/TestMike2
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
