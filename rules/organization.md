@@ -24,6 +24,22 @@ Applies to `outsystems-spec-driven-build`, `outsystems-design-to-app`, and `outs
 - For a business feature with no existing entity/CRUD convention to anchor to, use the feature name as the folder (e.g. `Reporting`, `Notifications`) — confirm the name with the user rather than inventing one silently
 - Don't let generated actions accumulate unfoldered "just this once" — retrofitting folders is expensive once dozens of actions exist unorganized
 
+## Auto-Layout (required after creation)
+
+After any batch that creates or modifies Server Actions, Client Actions, or Service Actions, run a follow-up Mentor turn to auto-position all flow nodes:
+
+```
+Auto-position all flow nodes in each of these actions so the layout is clean
+and readable: {Action1}, {Action2}, ...
+
+Do not change any logic, connections, inputs, outputs, or expressions —
+only reposition the nodes.
+```
+
+- Run as a separate Mentor turn (resume the same session, do NOT combine with logic changes)
+- List every action created in the batch — do not auto-layout in the same turn as logic creation
+- After auto-layout, publish
+
 ## Verification
 
 - `context_actions` returns the folder for each action — spot-check after any Mentor batch that creates actions

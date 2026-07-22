@@ -32,6 +32,8 @@ Every wrapped entity must carry these fields beyond its business attributes:
 
 Business-specific fields go between `Id` and the audit block.
 
+**Entity-level property:** Set the entity's **"Is Active Attribute"** property to `IsActive`. This tells ODC which Boolean attribute is the soft-delete flag — aggregates that use the built-in active-record filter rely on this setting.
+
 ## Pre-flight Check
 
 Run before starting any mentor session for a new entity.
@@ -110,7 +112,7 @@ Role-protected (same role gating the rest of the app's CRUD screens).
 
 | Action | Logic |
 |---|---|
-| `DeleteOnClick(Id)` | Calls `{Entity}_Remove(Id)`; if `IsSuccess = False` → show Error message with `CombinedEntityMessageText` |
+| `DeleteOnClick(Id)` | Calls `{Entity}_Remove(Id)`; If condition labeled **"Fail?"** on `IsSuccess = False`: True → show Error message with `CombinedEntityMessageText` → End; False → End (no explicit RefreshData — screen lifecycle auto-refreshes the list aggregate) |
 | `OnSearch` | Resets `StartIndex = 0`, refreshes `Get{Entity}s` |
 | `OnPaginationNavigate(NewStartIndex)` | Assigns `StartIndex = NewStartIndex`, refreshes `Get{Entity}s` |
 | `OnSort(SortBy)` | Condition: `TableSort = SortBy and SortBy <> ""` (already on this column?) → True: `TableSort = SortBy + " DESC"` / False: `TableSort = SortBy`. Then resets `StartIndex = 0`, refreshes `Get{Entity}s`. Toggle pattern: ASC → DESC → ASC (third click reverts because `SortBy + " DESC"` ≠ `SortBy`). |
@@ -214,6 +216,7 @@ Run screens in a follow-up mentor turn after the actions are confirmed compiling
 After mentor run, confirm via `context_actions` + `context_screens`:
 
 - [ ] Pre-flight run: entity fields verified, shared infra confirmed present
+- [ ] Entity's "Is Active Attribute" property set to `IsActive`
 - [ ] All 4 server actions exist in folder `{Entity}`, matching `dbresults-odc-crud-wrapper`'s checklist
 - [ ] List screen: aggregate joins `User`, filter/sort/pagination wired, all 4 screen actions present
 - [ ] List screen: empty/loading states present, no `OnInitialize`

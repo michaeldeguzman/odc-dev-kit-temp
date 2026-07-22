@@ -13,16 +13,18 @@ Derived from `SampleEntity` in the `Model Application` app (`6b261520-1972-48bd-
 
 Every wrapped entity must carry these fields beyond its business attributes:
 
-| Field | Type | Mandatory | Notes |
-|---|---|---|---|
-| `Id` | Long Integer | Yes | Auto-number, Primary Key |
-| `IsActive` | Boolean | Yes | Soft-delete flag |
-| `CreatedByUserId` | User Identifier | Yes | Audit — FK to User |
-| `CreatedOn` | DateTime | Yes | Audit |
-| `UpdatedByUserId` | User Identifier | Yes | Audit — FK to User |
-| `UpdatedOn` | DateTime | Yes | Audit |
+| Field | Type | Mandatory | Delete Rule | Notes |
+|---|---|---|---|---|
+| `Id` | Long Integer | Yes | — | Auto-number, Primary Key |
+| `IsActive` | Boolean | Yes | — | Soft-delete flag |
+| `CreatedByUserId` | User Identifier | Yes | Ignore | Audit — FK to User |
+| `CreatedOn` | DateTime | Yes | — | Audit |
+| `UpdatedByUserId` | User Identifier | Yes | Ignore | Audit — FK to User |
+| `UpdatedOn` | DateTime | Yes | — | Audit |
 
 Business-specific fields go between `Id` and the audit block.
+
+**Entity-level property:** Set the entity's **"Is Active Attribute"** property to `IsActive`. This tells ODC which Boolean attribute is the soft-delete flag — aggregates that use the built-in active-record filter rely on this setting.
 
 ## Pre-flight Check
 
@@ -40,15 +42,17 @@ If any are missing:
    > Fields will be added as optional with safe defaults — safe for both new and existing tables."
 3. On confirmation, add in the same mentor session:
 
-| Field | Type | IsMandatory | Default |
-|---|---|---|---|
-| `IsActive` | Boolean | False | `True` |
-| `CreatedOn` | DateTime | False | `#1900-01-01 00:00:00#` |
-| `UpdatedOn` | DateTime | False | `#1900-01-01 00:00:00#` |
-| `CreatedByUserId` | User Identifier | False | _(none)_ |
-| `UpdatedByUserId` | User Identifier | False | _(none)_ |
+| Field | Type | IsMandatory | Default | Delete Rule |
+|---|---|---|---|---|
+| `IsActive` | Boolean | False | `True` | — |
+| `CreatedOn` | DateTime | False | `#1900-01-01 00:00:00#` | — |
+| `UpdatedOn` | DateTime | False | `#1900-01-01 00:00:00#` | — |
+| `CreatedByUserId` | User Identifier | False | _(none)_ | Ignore |
+| `UpdatedByUserId` | User Identifier | False | _(none)_ | Ignore |
 
 **Always add as `IsMandatory=False`** — safe for new tables and required for existing ones with data. No downside.
+
+After adding `IsActive`, also set the entity's **"Is Active Attribute"** property to `IsActive` if it isn't already set.
 
 ### 2. Check shared infrastructure
 
@@ -286,7 +290,8 @@ Place all 4 server actions inside a folder named exactly `{EntityName}`.
 
 Entity business fields: {list fields with type/mandatory/max-length}
 Standard audit fields (Id, IsActive, CreatedByUserId, CreatedOn, UpdatedByUserId,
-UpdatedOn) are already on the entity.
+UpdatedOn) are already on the entity. The entity's "Is Active Attribute" property
+is set to IsActive.
 
 Create these 4 server actions with the descriptions specified:
 
@@ -391,7 +396,9 @@ Then publish.
 ## Verification Checklist
 
 After mentor run, confirm via `context_actions` and mentor inspection:
-- [ ] Pre-flight run: entity fields verified (or added as IsMandatory=False with safe defaults)
+- [ ] Pre-flight run: entity fields verified (or added as IsMandatory=False with safe defaults and correct Delete Rule)
+- [ ] `CreatedByUserId` and `UpdatedByUserId` have Delete Rule = Ignore
+- [ ] Entity's "Is Active Attribute" property set to `IsActive`
 - [ ] Pre-flight run: shared infrastructure confirmed present before CRUD actions created
 - [ ] `ProcessingException` user exception exists in the app
 - [ ] `EntityActionResult_*` helpers are inside folder `EntityActionResult`

@@ -9,6 +9,7 @@ description: ODC data access and entity conventions. Apply when creating or modi
 - Never hard-delete entity records. Always soft-delete: `IsActive = False`
 - `{Entity}_Remove` sets `IsActive = False` via `Update{Entity}` — it does not call `Delete{Entity}`
 - All list aggregates must filter `{Entity}.IsActive = True` unless specifically querying inactive records
+- Every entity with an `IsActive` attribute must have its **"Is Active Attribute"** entity property set to `IsActive` — set this at entity creation time, verify in pre-flight
 
 ## CRUD Operations
 

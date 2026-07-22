@@ -215,6 +215,53 @@ Investigation into ISendEmailNode and SetIconLibraryClass automation. Used NewAp
 | `add_references_to_elements` for SetIconLibraryClass | Does not succeed (20-element Model API surface limitation). Mentor fallback: creates local stub client action named `SetIconLibraryClass` — 0 warnings, 0 errors, but stub has no body |
 | Outcome | SendEmail manual step eliminated. SetIconLibraryClass: stub wired (clean validation), ODC Studio still needed to substitute real OutSystemsUI action |
 
+### Test Anything (`f464e3e1-4a26-4187-9d73-330de60ed791`) — TestEntity CRUD + scaffold screens — 2026-07-22
+
+Re-created TestEntity (prior 2026-07-17 work had been removed from OML). Added full CRUD wrappers and scaffold screens via `dbresults-odc-crud-wrapper` + `dbresults-odc-scaffold-entity` skills.
+
+| Build | Revision | Notes |
+|---|---|---|
+| TestEntity entity (Id, Name/500, 6 audit fields) + shared infra (EntityActionResult/Message structures, ProcessingException, 4 helper actions) + 4 CRUD actions (TestEntity_Validate/Upsert/GetCanRemove/Remove) | OML only — not published | Batch 1: 0 errors, 3 expected warnings (icon migration + 2 unused-action) |
+| TestEntitys list screen + TestEntityDetail create/edit screen (both MainFlow, TestAnything role) | OML only — not published | Batch 2: 0 errors, 1 warning (pre-existing icon migration) |
+| Publish attempt 1 — OS-DPL-50205 | Failed | Suspected mandatory Name field; set Name IsMandatory=False with default="" |
+| Publish attempt 2 — OS-DPL-50205 | Failed | Root cause: pre-existing Snowflake entities (ODC_CUSTOMER_FINAL, ODC_CUSTOMER_SAMPLE, ODC_PRODUCTS) — Snowflake connection not configured in Development stage. Unrelated to this session's work. |
+| Fix `DeleteOnClick` in `TestEntitys` to match ModelApplication reference | OML only — not published | Removed explicit RefreshData; relabeled If to "Fail?"; inverted condition to `NOT IsSuccess`. 0 errors, 0 warnings. |
+
+**All OML changes verified via `context_actions` (16 actions) and `context_screens` (8 screens) — everything landed correctly. Publish blocked by Snowflake connection, not by our changes.**
+
+**TestEntity.Name:** set IsMandatory=False (database level) with default="" — physical table from 2026-07-17 session still existed with rows. `TestEntity_Validate` still enforces Name required at app level.
+
+**To unblock publish:** ODC Portal → Test Anything → Configurations → Development → configure Snowflake external connection.
+
+**Known finding:** Test Anything has pre-existing Snowflake entities. Any future publish of this app will fail with OS-DPL-50205 until the Snowflake connection is configured in the target stage.
+
+**Delete gap finding:** user reported "delete missing" — the live deployed app has no `TestEntitys` screen (Snowflake blocked publish). OML has the screen. Reference pattern uses "Fail?" If label, no explicit RefreshData on success (screen lifecycle handles it). Fixed to match.
+
+### TestMike (`5ddb2fd7-ee7f-4d22-9b3d-fdc709bcc113`) — Employee CRUD + scaffold screens — 2026-07-22
+
+| Build | Revision | Notes |
+|---|---|---|
+| Shared infra (EntityActionResult/Message structures, MessageType static entity, ProcessingException, 3 EntityActionResult helper actions in folder EntityActionResult, Session_GetNormalizedSessionUserId Function in folder Session) + Employee entity (Id, FirstName/100, LastName/100, 6 audit fields — all IsMandatory=False, User FK fields Delete Rule=Ignore) + 4 CRUD actions (Employee_Validate/Upsert/GetCanRemove/Remove in folder Employee) | Rev 2 → 3 | Batch 1: 0 errors, 3 expected warnings (icon migration + 2 unused-action). **First attempt lost to Mentor session GC** (same pattern as TestNewWebApp7) — re-run succeeded. |
+| Employees list screen + EmployeeDetail create/edit screen (both MainFlow, TestMike role, LayoutTopMenu) | Rev 3 | Batch 2: 0 errors, 1 warning (pre-existing icon migration). Mentor auto-published during batch. |
+| Publish | Rev 3 | `publish_start` → `no_changes_detected: true` (Mentor had auto-published). `env_app` confirmed revision 3 deployed 2026-07-22T09:25 AEST. |
+
+**No Snowflake entities in TestMike** — publish succeeded (no OS-DPL-50205).
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestMike (revision 3)
+
+### Test Anything (`f464e3e1-4a26-4187-9d73-330de60ed791`) — Employee CRUD + scaffold screens — 2026-07-22
+
+| Build | Revision | Notes |
+|---|---|---|
+| Employee entity (Id, FirstName/100, LastName/100, 6 audit fields — all IsMandatory=False, CreatedByUserId/UpdatedByUserId Delete Rule=Ignore) + 4 CRUD actions (Employee_Validate/Upsert/GetCanRemove/Remove in folder Employee) | OML only — not published | Batch 1: 0 errors, 3 expected warnings (icon migration + 2 unused-action) |
+| Employees list screen + EmployeeDetail create/edit screen (both MainFlow, TestAnything role) | OML only — not published | Batch 2: 0 errors, 1 warning (pre-existing icon migration) |
+
+**Publish still blocked:** same pre-existing Snowflake OS-DPL-50205 as TestEntity. Fix: ODC Portal → Test Anything → Configurations → Development → configure Snowflake connection.
+
+**Employee NameField:** no single name field — success/error messages use `FirstName + " " + LastName` expression. Validation enforces both fields mandatory at app level (entity fields IsMandatory=False for safe schema migration).
+
+**Search:** Employees screen filters on both `FirstName` and `LastName` (OR'd search).
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
