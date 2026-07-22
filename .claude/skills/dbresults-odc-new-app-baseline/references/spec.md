@@ -875,12 +875,74 @@ AllExceptions handler → UpdateUserResult.Success = False → End
 
 ### 11. Email Templates (in Emails flow)
 
-Both templates share the same four input parameters (none mandatory): `ApplicationName` (Text), `CustomerName` (Text), `CustomerEmail` (Email), `VerificationCode` (Text).
-
-- **`ResetPassword`** — Subject: `"Password Reset for " + ApplicationName`. Content: logo, personalized greeting, reset instructions, `VerificationCode` (heading2) + "expires in 1 hour", CTA button → `RecoverPasswordReset(VerificationCode, CustomerEmail)`, sign-off, copyright.
-- **`ChangeEmail`** — Subject: `ApplicationName + ": verification code " + VerificationCode`. Content: same outer structure; email-change instructions; `VerificationCode` (heading2, centered); **no CTA button**; sign-off, copyright.
+Both templates share the same four input parameters — **all mandatory**: `ApplicationName` (Text), `CustomerName` (Text), `CustomerEmail` (Email), `VerificationCode` (Text).
 
 Templates inherit theme from the `Emails` flow — do not set explicit template-level theme.
+
+Both templates use the same outer container structure:
+
+```
+Container "EmailWrapper"  Style: "email-max-width margin-auto"  Width: fill parent
+  └─ Container "Email"  Style: "background-neutral-2 padding-l"  Width: fill parent
+       ├─ Container "Content"  Style: "background-neutral-0 padding-l border-radius-medium"  Width: fill parent
+       │   ├─ Container "Logo"  Style: "email-logo text-align-left"
+       │   │   ├─ Image (unnamed)  Type: Static  Source: Logo  Extended: alt="Company Logo"
+       │   │   └─ Expression (unnamed)  Value: ApplicationName  Example: "App name"
+       │   ├─ Container "Title"  Style: "margin-bottom-base heading5"  CustomStyle: "text-align: left;"
+       │   │   └─ If (unnamed)  Condition: CustomerName <> ""  DesignMode: ShowTrueOrPreview
+       │   │        True:  Expression "Hi " + CustomerName + "!"  Example: "Hi, John Smith!"
+       │   │        False: Text "Hi!"
+       │   ├─ Container "Message"  Style: "margin-bottom-m"
+       │   │   └─ Text [template-specific body copy — see below]
+       │   ├─ Container (unnamed)  Style: "margin-bottom-m"
+       │   │   ├─ Container (unnamed)  Style: "heading2 margin-bottom-s"  [CustomStyle — see below]
+       │   │   │   └─ Expression (unnamed)  Value: VerificationCode  [Example — see below]
+       │   │   └─ Container (unnamed)  Style: "font-size-xs text-neutral-7"  [CustomStyle — see below]
+       │   │       └─ Text "This verification code expires in 1 hour"
+       │   ├─ [ResetPassword only — CTA block, see below]
+       │   ├─ Container "Instructions"  Style: (none)
+       │   │   └─ Container (unnamed)  Style: "margin-bottom-m"
+       │   │       └─ Text [template-specific instructions copy — see below]
+       │   ├─ Container (unnamed)  Style: (none)
+       │   │   └─ Text [template-specific sign-off — see below]
+       │   ├─ Container (unnamed)  Style: "email-separator"
+       │   └─ Container "Copyright"  Style: "font-size-xs text-neutral-7"
+       │       ├─ Text "© "
+       │       ├─ Expression  Value: Year(CurrDate())
+       │       ├─ Text " "
+       │       ├─ Expression  Value: ApplicationName  Example: "App name"
+       │       └─ Text ". All Rights Reserved."
+       └─ Container "Footer"  Style: "margin-top-m"
+```
+
+**`ResetPassword`** — Subject: `"Password Reset for " + ApplicationName`
+
+Template-specific values:
+- **Message body:** `"You're receiving this e-mail because you requested a password reset for your user account. To set a new password, use the button below or insert the following verification code in the reset password page. "`
+- **VerificationCode block:** heading2 container no CustomStyle; Example: `"yAlFws8Fs3NwIlvc"`; expiry container no CustomStyle
+- **CTA block** (between VerificationCode block and Instructions):
+  ```
+  Container (unnamed)  Style: "margin-bottom-base"
+    └─ Container (unnamed)  Style: "margin-bottom-m"
+         └─ Link (unnamed)  Style: (none)  Enabled: True
+              OnClick: navigate RecoverPasswordReset
+                VerificationCode ← VerificationCode
+                Email ← CustomerEmail
+              └─ Container (unnamed)  Style: "btn btn-primary"
+                   └─ Text "Reset password"  (lowercase p)
+  ```
+- **Instructions:** `"If you don't want to change your password or didn't request this,\nyou can safely disregard this email."`
+- **Sign-off:** `"Thanks,\nAdmin"`
+
+**`ChangeEmail`** — Subject: `ApplicationName + ": verification code " + VerificationCode`
+
+Template-specific values:
+- **Message body:** `"To complete your request to update the email address, please use the following verification code:"`
+- **VerificationCode block:** heading2 container CustomStyle `"text-align: center;"`; Example: `"8475"`; expiry container CustomStyle `"text-align: center;"`
+- **No CTA block**
+- **Instructions:** `"If you don't want to change your email or didn't request this, you can safely disregard this email."`
+- **Sign-off:** `"Thank you,\nAdmin"`
+- **If widget name:** `"IF_HasCustomerName"` (ResetPassword's If is unnamed)
 
 ### 12. External Sites (in Common flow)
 

@@ -372,6 +372,23 @@ Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 18, 2026-07-23)
 
+### TestNewWebApp9 — email template widget tree fix (`48387023-1192-4dd6-87f8-9456df0f7964`) — 2026-07-23
+
+7-step workflow applied to both Emails flow templates against NewApp reference. Gap reports and widget trees saved to `notes/2026-07-23-emails-*.md`.
+
+**Email Templates (Emails flow) — Rev 18 → 19:**
+
+| Template | Discrepancies | Key fixes |
+|---|---|---|
+| ResetPassword | 13 | All 4 params → mandatory; complete body rebuild: EmailWrapper/Email/Content container structure; Logo (Image+AppName); Title If-widget (CustomerName fallback); Message text widget; VerificationCode nested containers; expiry text; CTA button "Reset password" (lowercase); Instructions; sign-off "Thanks,\nAdmin"; email-separator; Copyright (Year+AllRights); Footer |
+| ChangeEmail | 12 | Same structural fixes; body text: email-change copy; VerificationCode + expiry with text-align:center; no CTA; sign-off "Thank you,\nAdmin"; If named "IF_HasCustomerName" |
+
+**spec.md updated:** Section 11 rewritten with full shared container tree + per-template differences (body text, VerificationCode CustomStyle, CTA block, sign-off, If widget name).
+
+**Key pattern:** baseline skill generates flat widget lists (bare Expressions, no container structure). Reference uses proper email-safe HTML container hierarchy (EmailWrapper > Email > Content) with named Logo/Title/Message/Instructions/Copyright/Footer sections.
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 19, 2026-07-23)
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
