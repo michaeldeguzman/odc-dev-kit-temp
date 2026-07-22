@@ -275,11 +275,70 @@ Every screen's layout block instance must have all parameter arguments explicitl
 
   **Do NOT create a `Check{App}Role`/`Has{App}Role` wrapper client action** — the platform-generated `Check{App}Role` IS the check; wrappers collide with its name and get auto-suffixed.
 
+  **Layout** (widget tree inside `LayoutBlank`'s `Content` placeholder, in order):
+
+  - Container `"login-screen"` → Form `LoginForm` `"login-form"`:
+
+    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
+    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    - AdvancedHtml tag `h1` (extended property `class="margin-y-base"`) → Expression `GetAppName()` (Style `"heading5 text-neutral-8"`, Example `"Application Title"`)
+
+    **B — `BuiltInProvider` If** (`Condition: ShowBuiltInProvider`, `DesignMode: ShowAll`), True branch:
+
+    - Container `"login-inputs"`:
+      - Container (no style) → `AnimatedLabelInstance` (`AnimatedLabel` block, OutSystemsUI Interaction):
+        - Label placeholder: Label (Target `Input_UsernameVal`) → Text `"Login"`
+        - Input placeholder: Input `Input_UsernameVal` (`"form-control"`, InputType **Text**, Variable `UserEmail`, Enabled `ExecutingIndex = -1 and not IsBuiltInExecuting`, Mandatory True, MaxLength 250, tabindex=1)
+      - Container `"margin-top-base"` → `AnimatedLabelInstance2` (`AnimatedLabel` block):
+        - Label placeholder: Label (Target `Input_Password`) → Text `"Password"`
+        - Input placeholder: `InputWithIconInstance` (`InputWithIcon` block, `AlignIconRight = True`):
+          - Icon placeholder: Link (OnClick `OnTogglePasswordVisibility`) → If `PasswordVisibile` (`Condition: IsPasswordVisible`, `DesignMode: ShowTrueOrPreview`):
+            - True: Icon `eye-slash`, regular, Style `"icon"`, FontSize
+            - False: Icon `eye`, regular, Style `"icon"`, FontSize
+          - Input placeholder: Input `Input_Password` (Style `"form-control login-password"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, InputType Password, Variable `Password`, Enabled `ExecutingIndex = -1 and not IsBuiltInExecuting`, Mandatory True, tabindex=2)
+      - Container `"margin-top-l"` → Container (`CustomStyle: text-align: right`) → Link (OnClick → navigate `RecoverPasswordRequest`, tabindex=3, aria-label `"Forgot your password? Click here to recover it"`) → Text `"Forgot your password?"`
+    - Container `"login-button margin-top-l"` → `ButtonLoadingInstance` (`ButtonLoading` block, `IsLoading = IsBuiltInExecuting`, `ExtendedClass = "full-width"`):
+      - Button placeholder: Button (`"btn btn-primary"`, IsDefault/IsSubmit **True**, Enabled `ExecutingIndex = -1`, OnClick `LoginOnClick` ValidateAndContinue, tabindex=4) → Container `"osui-btn-loading__spinner-animation"` + Text `"Log in"`
+
+    **C — `Separator` If** (`Condition: ShowBuiltInProvider and ShowExternalProvider`, `DesignMode: ShowAll`), True branch:
+    - Container `"display-flex justify-content-center align-items-center"`:
+      - Container `"full-width"` → `SeparatorInstance` (`Separator` block, all params null)
+      - Text `"or"` (Style `"position-absolute padding-x-s background-neutral-0 text-neutral-8-darker font-semi-bold"`)
+
+    **D — `ExternalProviders` If** (`Condition: ShowExternalProvider`, `DesignMode: ShowAll`), True branch:
+    - List `ListProviders` (`"list list-group"`, Source `ExternalIdentityProviders`, Tag `div`, AnimateItems True):
+      - Container `"margin-bottom-s"` → `ButtonLoadingInstance2` (`ButtonLoading` block, `IsLoading = ExecutingIndex = ExternalIdentityProviders.CurrentRowNumber`, `ShowLabelOnLoading = False`, `ExtendedClass = "full-width"`):
+        - Button placeholder: Button (`"btn"`, IsDefault False, Enabled `ExecutingIndex = -1 and not IsBuiltInExecuting`, OnClick `LoginProviderOnClick` with `ProviderIndex = ExternalIdentityProviders.CurrentRowNumber`, `ProviderKey = ExternalIdentityProviders.Current.Key`, tabindex=5) → Container `"osui-btn-loading__spinner-animation"` + Text `"Continue with "` + Expression `ExternalIdentityProviders.Current.Name` (Example `"Apple"`)
+
+  **Validator note:** `Input_UsernameVal` InputType is Text even though `UserEmail` is an Email-typed variable — this produces an "Input Type Mismatch" warning that is expected and acceptable; the reference app uses the same pattern.
+
 - **`RecoverPasswordRequest`** — `AnonymousAccess = true`, layout `LayoutBlank`. Local vars: `IsExecuting` (Boolean, False), `Email` (Email).
 
   | Action | Trigger | Logic |
   |---|---|---|
   | `ResetPasswordOnClick` | "Reset password" button | (1) If `RecoverPasswordForm.Valid` false → end. (2) `IsExecuting = True`. (3) Call `SendResetPasswordEmail(CustomerEmail = Email)`. (4) Success → `IsExecuting = False` → navigate to `RecoverPasswordReset(Email = Email)` (VerificationCode NOT passed). (5) Failure → show `"An error has occured. Please try again later."` (typo preserved), `IsExecuting = False`. **No `AllExceptions` handler.** |
+
+  **Layout** (widget tree inside `LayoutBlank`'s `Content` placeholder, in order):
+
+  - Container `"login-screen"` → Form `RecoverPasswordForm` `"login-form"`:
+
+    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
+    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    - AdvancedHtml tag `h5` (extended property `class="margin-top-base text-neutral-8"`) → Text `"Forgot your password?"`
+    - Container `"margin-top-s"` → Container → Text `"Don't worry, we'll send you an email with instructions."`
+
+    **B — Email input** (`"login-inputs margin-top-m"`):
+    - AnimatedLabel block (OutSystemsUI):
+      - Label placeholder: Label (Target `Input_Email`) → Text `"Email"`
+      - Input placeholder: Input `Input_Email` (`"form-control"`, InputType Email, Variable `Email`, Mandatory True, MaxLength 250, Enabled True, tabindex=1)
+
+    **C — Submit button** (`"login-button margin-top-l"`):
+    - ButtonLoading block (`IsLoading = IsExecuting`, `ExtendedClass = "full-width"`):
+      - Button placeholder: Button (`"btn btn-primary"`, IsDefault True, Enabled True, OnClick `ResetPasswordOnClick` ValidateAndContinue, tabindex=2) → Container `"osui-btn-loading__spinner-animation"` + Text `"Reset password"` (lowercase p)
+
+    **D — Footer** (`"margin-top-m"`, `CustomStyle: text-align: center`):
+    - Text `"Not in the right place?"`
+    - Link (OnClick → navigate `Login`, no validation, tabindex=3, aria-label `"Go to login page"`) → Text `"Go to login."`
 
 - **`RecoverPasswordReset`** — `AnonymousAccess = true`, layout `LayoutBlank`. Input params: `Email` (Email, mandatory), `VerificationCode` (Text, optional).
 
@@ -294,6 +353,54 @@ Every screen's layout block instance must have all parameter arguments explicitl
   | `OnToggleNewPasswordVisibility` | Eye icon | Toggles `IsPasswordVisible` → `ShowPassword(Input_NewPassword.Id)`. |
   | `OnToggleConfirmPasswordVisibility` | Eye icon | Toggles `IsConfirmPasswordVisible` → `ShowPassword(Input_ConfirmPassword.Id)`. |
   | `SavePasswordOnClick` | "Save password" button | (1) If `RecoverPasswordForm.Valid` false → end. (2) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Passwords doesn't match."` (typo preserved), end. (3) `IsExecuting = True`. (4) Call `FinishResetPassword(Email, NewPassword, VerificationCode)`. (5) `ComplexityFailed`: mark `Input_NewPassword.Valid = False`, `IsButtonEnabled = False`, `IsExecuting = False`. `InvalidVerificationCode`: `Input_Code.Valid = False`, `IsExecuting = False`. Unknown: show `"An unknown error occured. Please try again later."` (typo), `IsExecuting = False`. (6) Success: call `DoLogin(Email, NewPassword)` → success → navigate to `RedirectToURL(GetOwnerURLPath())`; failure → navigate to `Login`. AllExceptions handler: show `ExceptionMessage`, `IsExecuting = False`. |
+
+  **Layout** (widget tree inside `LayoutBlank`'s `Content` placeholder, in order):
+
+  - Container `"login-screen"` → Form `PasswordResetForm` `"login-form"` (Width `""`):
+
+    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
+    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    - AdvancedHtml tag `h5` (extended property `class="margin-top-base text-neutral-8"`) → Text `"Reset password"`
+    - Container `"margin-top-s"` → Container → Text `"If the entered email is correct, we'll send a verification code to that email. Please enter the code below to verify your identity."`
+
+    **B — Fields** (outer Container, no style):
+
+    - **B1 — Email (read-only)** (`"login-inputs margin-top-m"`): AnimatedLabel block:
+      - Label placeholder: Label (Target `Input_Email`) → Text `"Email"`
+      - Input placeholder: Input `Input_Email` (`"form-control"`, InputType Email, Variable `Email`, Mandatory True, MaxLength 250, **Enabled False**, Placeholder `"mary.smith@acme.com"`, no tabindex)
+
+    - **B2 — Verification code** (`"login-inputs margin-top-m"`): AnimatedLabel block:
+      - Label placeholder: Label (Target `Input_Code`) → Text `"Verification code"`
+      - Input placeholder: Input `Input_Code` (`"form-control"`, InputType Text, Variable `VerificationCode` (the screen's input parameter), Mandatory True, no MaxLength, Enabled True, OnChange `Input_CodeOnChange`, tabindex=1)
+
+    - **B3 — New password** (`"margin-top-base password-input"`): AnimatedLabel block:
+      - Label placeholder: Label (Target `Input_NewPassword`) → Text `"New password"`
+      - Input placeholder: InputWithIcon block (`AlignIconRight = True`):
+        - Icon placeholder: Link (**no validation**, OnClick `OnToggleNewPasswordVisibility`) → If `"PasswordVisibile"` (Condition `IsPasswordVisible`, ShowTrueOrPreview): True → Icon (eye-slash, `"icon"`, FontSize) / False → Icon (eye, `"icon"`, FontSize)
+        - Input placeholder: Input `Input_NewPassword` (`"form-control login-password"`, `CustomStyle: padding-right: var(--space-xl)`, InputType Password, Variable `NewPassword`, Mandatory True, MaxLength 256, Enabled True, tabindex=2)
+
+    - **B4 — PasswordPolicy block**: BlockInstance `PasswordPolicy` (`Password → NewPassword`, `Compliant → PasswordPolicyCompliant` (event), `IsValid → IsValid`)
+
+    - **B5 — Confirm password** (`"margin-top-base password-input"`): AnimatedLabel block:
+      - Label placeholder: Label (Target `Input_ConfirmPassword`) → Text `"Confirm password"`
+      - Input placeholder: InputWithIcon block (`AlignIconRight = True`):
+        - Icon placeholder: Link (**no validation**, OnClick `OnToggleConfirmPasswordVisibility`) → If `"ConfirmPasswordVisibile"` (Condition `IsConfirmPasswordVisible`, ShowTrueOrPreview): True → Icon (eye-slash, `"icon"`, FontSize) / False → Icon (eye, `"icon"`, FontSize)
+        - Input placeholder: Input `Input_ConfirmPassword` (`"form-control login-password"`, `CustomStyle: padding-right: var(--space-xl)`, InputType Password, Variable `ConfirmPassword`, Mandatory True, MaxLength 256, Enabled True, OnChange `Input_ConfirmPasswordOnChange`, tabindex=3)
+
+    **C — Submit button** (`"login-button margin-top-l"`):
+    - ButtonLoading block (`IsLoading = IsExecuting`, `ExtendedClass = "full-width"`):
+      - Button placeholder: Button (`"btn btn-primary"`, IsDefault True, Enabled `IsButtonEnabled`, OnClick `SavePasswordOnClick` ValidateAndContinue, tabindex=4) → Container `"osui-btn-loading__spinner-animation"` + Text `"Save password"` (lowercase p)
+
+    **D — Footer** (`"margin-top-m"`, `CustomStyle: text-align: center`):
+    - Text `"Not in the right place?"`
+    - Link (OnClick → navigate `Login`, no validation, tabindex=5, aria-label `"Go to login page"`) → Text `"Go to login."`
+
+  **Key builder notes:**
+  - Form name is `PasswordResetForm` (not `RecoverPasswordForm`)
+  - `Input_Code` binds to the `VerificationCode` input parameter (not a local variable named `Code`)
+  - `Input_Email` is `Enabled = False` — it shows the pre-filled email read-only
+  - Toggle Links must have **no validation** — eye icons only toggle visibility, they must not fire form validation
+  - Button `Enabled = IsButtonEnabled` (not `True`, not `IsButtonEnabled and not IsExecuting` — ButtonLoading handles the loading state display)
 
 - **`ChangePassword`** — requires login, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). Aggregate: `GetUserDetail` (Source: User, Filter: `User.Id = GetUserId()`, MaxRecords: 1).
 
@@ -310,9 +417,46 @@ Every screen's layout block instance must have all parameter arguments explicitl
   | `OnToggleConfirmPasswordVisibility` | Eye icon | Toggles `IsConfirmPasswordVisible` → `ShowPassword(Input_ConfirmPassword.Id)`. |
   | `SetNewPasswordOnClick` | "Set new password" button | (1) If `Form.Valid` false → end. (2) `IsExecuting = True`. (3) If `NewPassword ≠ ConfirmPassword` → `Input_ConfirmPassword.Valid = False`, `ValidationMessage = "Password and Confirm password don't match."`, `IsExecuting = False` → end. (4) Call system `ChangePassword(OldPassword, NewPassword, Username = GetUserDetail.List.Current.User.Email)`. (5) Success → show `"Password successfully changed!"` → navigate to `UserProfile`. `InvalidCredentials`: mark `Input_OldPassword.Valid = False`. `PasswordComplexityPolicyFailed`: `Input_NewPassword.Valid = False`, `IsButtonEnabled = False`. `TooManyFailedAttempts`: show timeout message. Other: show unknown error. **No `AllExceptions` handler.** |
 
-  Layout: `Breadcrumbs` placeholder has "← Back to profile" link → `UserProfile`. `Title` = "Change your password". `MainContent` has `Columns2` with form in `Column1`.
+  **Layout** (LayoutTopMenu placeholders):
 
-- **`InvalidPermissions`** — `AnonymousAccess = true`, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). No local vars, no aggregates, no screen actions. `MainContent`: `BlankSlate` (full height) — Icon: lock, text: "You don't have the necessary permission to see this screen.", sub-text: "Please contact your system administrator.", action (if not logged in): "Go to login" link → `Login`. `Header` placeholder: `UserInfo` block.
+  - **Breadcrumbs:** Link (→ UserProfile, no validation) → Icon (caret-left, `"icon"`, FontSize, regular) + Text `"Back to profile"` (CustomStyle: `margin-left: 5px;`)
+
+  - **Title:** Text `"Change your password"`
+
+  - **MainContent:** Columns2 block (all params null) → Column1 → Form `Form` `"form card"`:
+
+    **Child 1** (Container, no style) → AnimatedLabel block:
+    - Label placeholder: Label (Target `Input_OldPassword`) → Text `"Current password"`
+    - Input placeholder: Input `Input_OldPassword` (`"form-control"`, Password, `OldPassword`, Mandatory True, MaxLength 256, Enabled True, OnChange `Input_OldPasswordOnChange`, autocomplete=`"current-password"`, tabindex=1)
+
+    **Child 2** (Container `"margin-top-base"`) → AnimatedLabel block:
+    - Label placeholder: Label (Target `Input_NewPassword`) → Text `"New password"`
+    - Input placeholder: InputWithIcon block (`ExtendedClass = "padding-left-none"`, `AlignIconRight = True`):
+      - Icon placeholder: Link (no validation, OnClick `OnToggleNewPasswordVisibility`) → If `"PasswordVisible"` (Condition `IsPasswordVisible`, ShowTrueOrPreview): True → Icon (eye-slash, `"icon"`, FontSize, regular) / False → Icon (eye, `"icon"`, FontSize, regular)
+      - Input placeholder: Input `Input_NewPassword` (`"form-control login-password padding-left-none"`, CustomStyle `padding-bottom: 0px; padding-left: 0px; padding-right: var(--space-xl); padding-top: 0px;`, Password, `NewPassword`, Mandatory True, MaxLength 256, Enabled True, autocomplete=`"new-password"`, tabindex=2)
+
+    **Child 3** — PasswordPolicy block (`Password → NewPassword`, `Compliant → PasswordPolicyCompliant` event, `IsValid → IsValid`)
+
+    **Child 4** (Container `"margin-top-base"`) → AnimatedLabel block:
+    - Label placeholder: Label (Target `Input_ConfirmPassword`) → Text `"Confirm password"`
+    - Input placeholder: InputWithIcon block (`ExtendedClass = "padding-left-none"`, `AlignIconRight = True`):
+      - Icon placeholder: Link (no validation, OnClick `OnToggleConfirmPasswordVisibility`) → If `"PasswordVisible2"` (Condition **`IsPasswordVisible`** — same var as new password field, matches reference), ShowTrueOrPreview): True → Icon (eye-slash) / False → Icon (eye)
+      - Input placeholder: Input `Input_ConfirmPassword` (same style + CustomStyle as NewPassword, Password, `ConfirmPassword`, Mandatory True, MaxLength 256, Enabled True, OnChange `Input_ConfirmPasswordOnChange`, tabindex=3)
+
+    **Child 5** (Container, no style) → ButtonLoading block (`IsLoading = IsExecuting`, `ExtendedClass = "full-width"`):
+    - Button placeholder: Button (`"btn btn-primary margin-top-l"`, IsDefault True, Enabled `IsButtonEnabled`, OnClick `SetNewPasswordOnClick` ValidateAndContinue, tabindex=4) → Container `"osui-btn-loading__spinner-animation"` + Text `"Set new password"` (lowercase n)
+
+- **`InvalidPermissions`** — `AnonymousAccess = true`, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). No local vars, no aggregates, no screen actions.
+
+  **Header placeholder:** Container (`"full-height display-flex align-items-center justify-content-flex-end"`, fill parent) → `UserInfo` block only. **No Menu block.**
+
+  **MainContent:** `BlankSlate` block (`FullHeight = True`, `ExtendedClass = null/default`):
+  - **Icon placeholder:** Icon (`lock`, weight `regular`, size `FontSize`, style `"icon text-neutral-4"`)
+  - **Content placeholder:**
+    - Container (no style, fill parent) → Text `"You don't have the necessary permission to see this screen."` (style `"heading6"`)
+    - Container (style `"margin-top-s"`, fill parent) → Text `"Please contact your system administrator."` (no style)
+  - **Actions placeholder:** If `NotRegistered` (Condition: `GetUserId() = NullTextIdentifier()`, `ShowTrueOrPreview = True`):
+    - True branch: Link (no style, no validation, OnClick → `Login`, Extended property `tabindex = 1`) → Text `"Go to login"`
 
 - **`UserProfile`** — requires login, layout `LayoutTopMenu` (`HasFixedHeader = True`, `EnableAccessibilityFeatures = False`, `ExtendedClass = ""`). Title: `"Your profile"`. Description: `"Screen where the users can see and edit the user profile."`.
 
@@ -332,6 +476,37 @@ Every screen's layout block instance must have all parameter arguments explicitl
   | `UpdateCountdown` | Called by timer | Decrement `CountdownValue`. If `CountdownValue <= 0`: call `StopCountdown`. |
   | `StopCountdown` | Called by `UpdateCountdown`, `OnDestroy` | JS node: `if ($parameters.TimerHandle) { clearInterval($parameters.TimerHandle); }` (input: `TimerHandle` ← `TimerIntervalHandle`). |
   | `OnDestroy` | Screen destroy | Call `StopCountdown`. |
+
+  **Layout (UserProfile widget tree):**
+
+  - **Header placeholder:** `Menu` block instance directly in Header (no wrapper container). Params unset.
+  - **Title placeholder:** Text `"Your profile"` (no style).
+  - **Actions placeholder:** If (unnamed, Condition: `IsExternal`, DesignMode: ShowFalse) / False branch: Link (unnamed, no style, no validation, OnClick → `ChangePassword`) → Text `"Change your password"`.
+  - **MainContent placeholder:** Form `ProfileDetailsForm` (`"form card"`, fill parent) → `Columns2` block (unnamed, `PhoneBehavior = Entities.BreakColumns.All`, all others unset) → **Column1** (Column2 empty):
+
+    1. **divName** (`"margin-top-base"`) → `AnimatedLabel` (unnamed, ExtendedClass unset):
+       - Label: `NameLabel` → `NameInput`, Text `"Name"`
+       - Input: `NameInput` (Text, `GetUserDetails.List.Current.User.Name`, `Enabled = not IsExternal`, Mandatory: True, MaxLength: null/unset, `"form-control"`, `OnChange → ValidateInputsOnChange` no validation)
+
+    2. **divEmail** (`"margin-top-base"`) → `AnimatedLabel` (unnamed):
+       - Label: (unnamed) → `EmailInput`, Text `"Email"`
+       - Input: `EmailInput` (Email, `GetUserDetails.List.Current.User.Email`, `Enabled = not IsExternal`, Mandatory: True, MaxLength: 256, `"form-control"`, `OnChange → ValidateInputsOnChange` no validation, Extended: `autocomplete = "new-password"`)
+
+    3. **If `If_ShowGetCodeButton`** (Condition: `ShowGetCodeButton`, ShowAll):
+       - True → **If `If_ShowVerificationCode`** (Condition: `ShowVerificationCode`, ShowAll):
+         - True → `Columns2` (unnamed, `ExtendedClass = "align-items-center"`, `PhoneBehavior = BreakColumns.All`, `GutterSize = Entities.GutterSize.None`):
+           - **Column1:** Container `divVerificationCode` (`"padding-right-base"`, CustomStyle `"text-align: left;"`) → `AnimatedLabel` (unnamed):
+             - Label: (unnamed) → `VerificationCodeInput`, Text `"Verification code"`
+             - Input: `VerificationCodeInput` (Text, `VerificationCode`, Enabled: True, Mandatory: `ShowGetCodeButton`, MaxLength: 6, `"form-control"`, `OnChange → ValidateInputsOnChange` no validation, Extended: `autocomplete = "new-validationcode"`)
+           - **Column2:** Link (unnamed, `Enabled = CountdownValue <= 0`, no style, CustomStyle `"margin-bottom: 0px;"`, `OnClick → SendVerificationCode` no validation) → If `If_HaveRemainingTime` (Condition: `CountdownValue > 0`, ShowAll): True: Expression `"Didn't get it? Resend in " + CountdownValue + "s"` / False: Expression `"Resend verification code"`
+         - False → Container `DivGetVerificationCode` (no style) → `ButtonLoading` (unnamed, `IsLoading = IsExecuting_GetCode`, `ShowLabelOnLoading = True`) → Button placeholder: Button (unnamed, `"btn btn-small"`, IsDefault: False, `Enabled = ShowGetCodeButton and not ShowVerificationCode`, fill parent, `OnClick → SendVerificationCode` ValidateAndContinue) → spinner container + Text `"Get verification code"`
+       - False → (empty)
+
+    4. **If `If_ExternalUser`** (Condition: `IsExternal`, ShowAll):
+       - True → (empty)
+       - False → Container `divSaveChanges` (`"margin-top-base"`) → `ButtonLoading` `btnSaveChanges` (`IsLoading = IsExecuting`, `ShowLabelOnLoading = True`) → Button placeholder: Button `btnSave` (`"btn btn-primary"`, IsDefault: False, `Enabled = IsButtonEnabled`, fill parent, `OnClick → SaveChangesOnClick` ValidateAndContinue) → spinner container + Text `"Save changes"`
+
+  **Note:** Reference also has `divPhoto` (photo display with `HasPhotoUrl` If/Images) and `divPhotoURL` (AnimatedLabel → `PhotoUrlInput`, MaxLength 2048, autocomplete `"new-photourl"`) between divName and divEmail. Omit these on tenants where `User.PhotoUrl` does not exist. In the reference they sit between `divName` and `divEmail` in Column1.
 
 ### 9. Server Actions
 

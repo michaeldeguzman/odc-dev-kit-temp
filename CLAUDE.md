@@ -279,6 +279,49 @@ New app with auth baseline (revision 2). Session involved multiple GC recoveries
 
 Deployed to Development (revision 3 only): https://dbresults-rd-dev.outsystems.app/TestMike2
 
+### TestNewWebApp9 (`48387023-1192-4dd6-87f8-9456df0f7964`) — 2026-07-22
+
+New blank web app (`app_create`), scaffolded via `dbresults-odc-new-app-baseline` (8-batch structure). Brand color `#1E88E5`, reused the auto-generated `TestNewWebApp9` role. Session context was compacted mid-run; Batches 1-2 were completed in the prior context window, Batches 3-8 in this one.
+
+| Build | Revision | Notes |
+|---|---|---|
+| Batches 1-2 (flows/themes/role/IsUserProvider/client vars/images → layout+common blocks) | Rev 1 | Completed in prior context window |
+| Batch 3: 5 auth screens (Login/RecoverPasswordRequest/RecoverPasswordReset/ChangePassword/InvalidPermissions) | Rev 1 | 0 errors, 6 expected warnings (No Exception Handling + 4 Reminders + LastURL unused) |
+| Batch 4: UserProfile screen (13 local vars, 10 screen actions, GetUserDetails aggregate, JsSetInterval countdown timer) | Rev 1 | 0 errors, 9 expected warnings |
+| Batch 5: 3 server actions (SendResetPasswordEmail/Authentication, SendChangeEmail+UpdateUser/UserActions) + 5 client actions (DoLogin/DoLogout/SendResetPasswordEmail/Authentication, SendChangeEmail+UpdateUser/UserActions) + wired all Reminder nodes from Batches 3-4 | Rev 1 | 0 errors, 4 expected warnings |
+| Batch 6: 2 email templates (ResetPassword/ChangeEmail) + RedirectToURL external site + SendEmail node wiring (natural language) | Rev 1 | 0 errors, 2 expected warnings |
+| Batch 7: OnException handler (AllExceptions/DatabaseException/CommunicationException/SecurityException) + registered as Common flow OnExceptionHandler AND app GlobalExceptionHandler + screen role audit | Rev 1 | 0 errors, 1 warning (TimerHandle false positive only); "No Exception Handling" absent |
+| Batch 8: Validation sweep — 0 errors, 1 accepted false positive (TimerHandle JS output param — consumed in Assign node, validator cannot trace JS string expressions) | Rev 1 | `no_changes_detected: true` on publish — Mentor auto-published during batches. Verified via `env_app`: revision 2, deployed 2026-07-22T04:18:24Z |
+
+**No PhotoUrl on User entity:** `Id, Email, ExternalId, IsActive, Name, Phone, Username` — OldPhotoURL always `""`, Client.UserPhotoURL always `""`.
+
+**SetIconLibraryClass:** local stub client action wired in all 4 layout block OnInitialize — replace with real `OutSystemsUI.SetIconLibraryClass` in ODC Studio after publish.
+
+**`(System)` / OutSystemsUI reference hashes all-zero** — same sandbox limitation as prior runs — did not cause build failure.
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 2)
+
+### TestNewWebApp9 — widget tree fix (`48387023-1192-4dd6-87f8-9456df0f7964`) — 2026-07-22/23
+
+Systematic fix of all auth screen widget trees to match NewApp (`88f79d25-6cbf-4178-b804-199303656da4`) reference. 7-step workflow per screen: extract reference tree → extract built tree → diff → fix via Mentor → re-verify → update spec.md → publish. Gap reports and widget tree extracts saved to `notes/2026-07-22-*.md`.
+
+| Screen | Revision | Discrepancies | Key fixes |
+|---|---|---|---|
+| Login | Rev 2 → ~5 | Prior session | login-screen form shell, AnimatedLabel inputs, ButtonLoading, login-logo block |
+| RecoverPasswordRequest | Rev ~5 → ~8 | Prior session | Same form shell pattern as Login |
+| RecoverPasswordReset | Rev ~8 → ~11 | 27 | Full form rebuild: login-screen shell, AnimatedLabel, InputWithIcon+toggle Links, PasswordPolicy, ButtonLoading, "Not in the right place?" section |
+| ChangePassword | Rev ~11 → 12 | 33 | Breadcrumbs, Title, Columns2 wrapper, AnimatedLabel, InputWithIcon+toggle Links (NoValidation), PasswordPolicy, ButtonLoading (full-width) |
+| InvalidPermissions | Rev 12 → 13 | 11 | Header style corrected + Menu block removed, icon lock/FontSize/text-neutral-4, Content container structure+heading6, NotRegistered If wrapper+tabindex=1+plain link |
+| UserProfile | Rev 13 → 14 | 39 | Header menu block direct (no wrapper), Actions placeholder added with conditional Change-pwd link, Columns2 wrapper in form, AnimatedLabel on Name/Email, If-based verif-code section (Columns2 + resend link + If_HaveRemainingTime), ButtonLoading on GetCode+Save buttons, If_ExternalUser wrapper on Save, Change-pwd link moved to Actions |
+
+**Pattern:** baseline skill builds all auth screens as simplified stubs (bare form + plain inputs + plain buttons). Reference uses branded shell (login-screen, AnimatedLabel, InputWithIcon, ButtonLoading). Fix pattern identical each screen — full widget tree rebuild. UserProfile additionally had placeholder-structure gaps (Actions absent, Columns2 absent, If-based visibility vs container visibility).
+
+**spec.md updated:** full Layout sections added for RecoverPasswordReset, ChangePassword, InvalidPermissions, UserProfile (and Login/RecoverPasswordRequest from prior sessions).
+
+**Coherence Suggestion warning (UserProfile):** NameInput MaxLength unset (platform default 50) while User.Name column is 256. Matches reference's "not set" intent. Accepted.
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 14, 2026-07-22T18:02:21Z)
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
