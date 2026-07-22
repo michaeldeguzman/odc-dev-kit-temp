@@ -322,6 +322,35 @@ Systematic fix of all auth screen widget trees to match NewApp (`88f79d25-6cbf-4
 
 Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 14, 2026-07-22T18:02:21Z)
 
+### TestNewWebApp9 — layout + Common block widget tree fix (`48387023-1192-4dd6-87f8-9456df0f7964`) — 2026-07-23
+
+7-step workflow (extract reference → extract built → diff → fix → re-verify → update spec.md → push) applied to all 5 layout blocks and 4 Common blocks against NewApp reference. Gap reports and widget trees saved to `notes/2026-07-23-*.md`.
+
+**Layout blocks (Layouts flow) — Rev 14 → 16:**
+
+| Block | Discrepancies | Key fixes |
+|---|---|---|
+| LayoutBase | 7 | Header2 Container→AdvancedHtml `<header>`, Footer Container→AdvancedHtml `<footer>`, missing MenuIcon+ApplicationTitle blocks, no ThemeGrid_Container on MainContentWrapper |
+| LayoutBlank | 4 | CSS "layout-blank"→"layout blank", Content placeholder style "content-middle"→"main-content", missing ContentArea Container wrapper, inner container missing role="main" |
+| LayoutTopMenu | 7 | Header2 Container→AdvancedHtml `<header>`, Footer Container→AdvancedHtml `<footer>`, stray "link" Text in SkipNavLink, wrapper Containers around MenuIcon/ApplicationTitle/Menu block instances removed |
+| LayoutSideMenu | 11 | LayoutWrapper style expression, SkipNavLink moved to direct LayoutWrapper child, `<aside>` AdvancedHtml added (Navigation placeholder + Menu default content), Header2→AdvancedHtml `<header>`, stray "link" Text removed, MenuIcon+ApplicationTitle blocks added, Footer→AdvancedHtml `<footer>` |
+| LayoutBase | (included above) | — |
+
+**Common blocks (Common flow) — Rev 16 → 17:**
+
+| Block | Discrepancies | Key fixes |
+|---|---|---|
+| ApplicationTitle | 6 | Root Link→Container; style "app-name"→"application-name display-flex align-items-center full-height"; Extended role/tabindex; AppLogo Image added; app name literal→Expression GetAppName(); stray "link" Text removed |
+| MenuIcon | 5 | 4 ARIA Extended props added; Text "☰"→Icon (list, 2x, regular, aria-hidden="true") |
+| Menu | 8 | Root Container→AdvancedHtml `<nav>`; aria-label added; header-logo Container+If(False)+ApplicationTitle block added; PageLinks role="menubar"; LoginInfo style corrected; MenuOverlay style corrected + role="button" |
+| UserInfo | 12 | Complete rebuild: UserIsLogged If (auth check); HasPhotoURL If with photo Image or UserAvatar block (OutSystemsUI); username Expression in Link→UserProfile; logout with sign-out Icon+"Log out"; False branch Login link for unauthenticated users |
+
+**spec.md updated:** full ASCII widget trees added for all 5 layout blocks (section 6) and all 4 Common blocks (section 7).
+
+**Key patterns confirmed across all blocks:** baseline skill generates flat/wrong widget types (Containers instead of AdvancedHtml semantic tags, Text literals instead of Expressions, no ARIA attrs, no conditional auth structure). Reference always uses semantic HTML, Expressions, and conditional visibility. Widget tree rebuild required for every block.
+
+Deployed to Development: https://dbresults-rd-dev.outsystems.app/TestNewWebApp9 (revision 17)
+
 ---
 
 _Add a new dated section for each session. Two formats are used:_
