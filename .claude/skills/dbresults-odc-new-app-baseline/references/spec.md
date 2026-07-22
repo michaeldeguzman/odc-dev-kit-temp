@@ -348,7 +348,31 @@ No input parameters.
 
 | Client Action | Trigger | Logic |
 |---|---|---|
-| `ApplicationNameOnClick` | onclick on wrapper | Navigates to `RedirectToURL` with `GetOwnerURLPath()`. |
+| `ApplicationNameOnClick` | onclick on wrapper container | Navigates to `RedirectToURL` with `GetOwnerURLPath()`. |
+
+**Widget tree:**
+
+```
+[Container] ApplicationTitleWrapper
+  Style: "application-name display-flex align-items-center full-height"
+  Width: (fill parent)
+  Extended: role="button", tabindex="0"
+  Event: onclick → ApplicationNameOnClick
+  │
+  ├─ [Image] AppLogo
+  │    Type: Static (local image: Logo)
+  │    Style: "app-logo"
+  │    CustomStyle: "height: 32px;"
+  │    Extended: alt=""
+  │
+  └─ [Expression] (unnamed)
+       Value: GetAppName()
+       Example: "Application Title"
+```
+
+**Key:** Root is a Container with an `onclick` event — NOT a Link widget. App name is an Expression using `GetAppName()` — NOT a literal Text widget.
+
+---
 
 #### MenuIcon
 
@@ -357,7 +381,28 @@ No input parameters.
 | Client Action | Trigger | Logic |
 |---|---|---|
 | `OnReady` | After first render + on parameter change | Calls `SetMenuIconListeners`. |
-| `OnClick` | onclick on icon container | Calls `ToggleSideMenu`. |
+| `OnClick` | onclick on container | Calls `ToggleSideMenu`. |
+
+**Widget tree:**
+
+```
+[Container] MenuIconContainer
+  Style: "menu-icon"
+  Width: (fill parent)
+  Extended: aria-label="Toggle the Menu", role="button", tabindex="0", aria-haspopup="true"
+  Event: onclick → OnClick
+  │
+  └─ [Icon] (unnamed)
+       Icon: list
+       Size: 2x
+       Weight: regular
+       Style: "icon"
+       Extended: aria-hidden="true"
+```
+
+**Key:** Child is an Icon widget (icon=`list`, 2x, regular) — NOT a Text widget with a hamburger character. Container needs all 4 ARIA extended properties.
+
+---
 
 #### Menu
 
@@ -375,7 +420,45 @@ Include `ActiveItem`/`ActiveSubItem` at baseline stage with default `-1` — the
 | `OnDestroy` | On removal | Calls `MenuDestroy`. |
 | `HideMenu` | onclick on overlay | Calls `ToggleSideMenu`. |
 
-Widget: `<nav>` with `PageLinks` container (navigation links added here by later skills) and `LoginInfo` container containing `UserInfo` block. Plus an overlay container wired to `HideMenu`.
+**Widget tree:**
+
+```
+[AdvancedHtml] (unnamed)  Tag: nav
+  Extended: class="app-menu-content display-flex", role="navigation", aria-label="Main navigation"
+  │
+  ├─ [Container] (unnamed)  Style: "header-logo placeholder-empty"
+  │    Width: (fill parent)
+  │    └─ [If] (unnamed)
+  │         Condition: False
+  │         DesignMode: ShowFalse
+  │         True branch: (empty)
+  │         False branch:
+  │           └─ [BlockInstance] (unnamed) → ApplicationTitle (Common flow)
+  │                (no parameter bindings)
+  │
+  ├─ [Container] PageLinks
+  │    Style: "app-menu-links"
+  │    Width: (fill parent)
+  │    Extended: role="menubar"
+  │    (no children — navigation links added by later skills)
+  │
+  └─ [Container] LoginInfo
+       Style: "app-login-info placeholder-empty"
+       Width: (fill parent)
+       └─ [BlockInstance] (unnamed) → UserInfo (Common flow)
+            (no parameter bindings)
+
+[Container] MenuOverlay  (sibling of the nav, NOT a child)
+  Style: "app-menu-overlay"
+  Width: (fill parent)
+  Extended: role="button"
+  Event: onclick → HideMenu
+  (no children)
+```
+
+**Key:** Root is an `AdvancedHtml <nav>` — NOT a Container. The `header-logo` container with Always-False If + ApplicationTitle block is a structural slot that stays hidden at runtime by design. `LoginInfo` style is `"app-login-info placeholder-empty"` — NOT `"login-info"`. `MenuOverlay` style is `"app-menu-overlay"` — NOT `"menu-overlay"`.
+
+---
 
 #### UserInfo
 
@@ -384,8 +467,67 @@ No input parameters.
 | Client Action | Trigger | Logic |
 |---|---|---|
 | `OnReady` | After first render | Calls `GetUsernameAndPhoto`. |
-| `GetUsernameAndPhoto` | Called by `OnReady` | If `Client.UserName` empty and user logged in: calls system `GetUserProfile`, assigns `Client.UserName` and `Client.UserPhotoURL`. |
-| `ClientLogout` | Logout link click | Calls `DoLogout` → navigates to `RedirectToURL` with `URL = DoLogout.RedirectURL` (fade). |
+| `GetUsernameAndPhoto` | Called by `OnReady` | If `Client.UserName = "" and GetUserId() <> NullTextIdentifier()` (label: "No username?"): True → calls `GetUserProfile` (System), assigns `Client.UserName = GetUserProfile.UserInfo.Name`, `Client.UserPhotoURL = GetUserProfile.UserInfo.PhotoURL`. False → End. |
+| `ClientLogout` | Logout link click | Calls `DoLogout` → navigates to `RedirectToURL` with `URL = DoLogout.RedirectURL` (Fade). |
+
+**Widget tree:**
+
+```
+[Container] (unnamed)
+  Style: "user-info"
+  Width: (fill parent)
+  │
+  └─ [If] UserIsLogged
+       Condition: GetUserId() <> NullTextIdentifier()
+       DesignMode: ShowAll
+       │
+       ├─ True branch:
+       │    ├─ [Container] (unnamed)  Style: (none)  Width: (fill parent)
+       │    │    └─ [If] HasPhotoURL
+       │    │         Condition: Client.UserPhotoURL <> ""
+       │    │         DesignMode: ShowAll
+       │    │         True branch:
+       │    │           └─ [Image] (unnamed)
+       │    │                Type: External (URL)
+       │    │                URL: Client.UserPhotoURL
+       │    │                Style: "avatar avatar-small border-radius-rounded"
+       │    │                Extended: title=Client.UserName, alt="User photo"
+       │    │         False branch:
+       │    │           └─ [BlockInstance] userAvatarInstance → UserAvatar (OutSystemsUI / Content flow)
+       │    │                Size = Entities.Size.Small
+       │    │                Name = Client.UserName
+       │    │                (Shape, Color, IsLight, Image, ExtendedClass = null/default)
+       │    │
+       │    ├─ [Container] (unnamed)  Style: "margin-left-s"  Width: (fill parent)
+       │    │    └─ [Link] (unnamed)
+       │    │         Style: (none)  Enabled: True  Transition: Inherited
+       │    │         OnClick: navigates to UserProfile screen
+       │    │         └─ [Expression] (unnamed)
+       │    │              Value: Client.UserName
+       │    │              Example: "Username"
+       │    │
+       │    └─ [Container] (unnamed)  Style: "margin-left-s"  Width: (fill parent)
+       │         └─ [Link] (unnamed)
+       │              Style: (none)  Width: (fill parent)  Enabled: True  Transition: Fade
+       │              OnClick: ClientLogout screen action
+       │              ├─ [Icon] Icon3
+       │              │    Icon: sign-out  Size: FontSize  Weight: regular  Style: "icon"
+       │              └─ [Text] (unnamed)
+       │                   Text: "Log out"
+       │                   Style: "margin-left-s wcag-hide-text"
+       │
+       └─ False branch:
+            └─ [Link] (unnamed)
+                 Style: (none)  Width: (fill parent)  Enabled: True  Transition: Fade
+                 OnClick: navigates to Login screen
+                 ├─ [Icon] Icon4
+                 │    Icon: sign-in  Size: FontSize  Weight: regular  Style: "icon"
+                 └─ [Text] (unnamed)
+                      Text: "Login"
+                      Style: "margin-left-s"
+```
+
+**Key:** Root child is `UserIsLogged` If widget (not a flat list of widgets). Username is an Expression inside a Link → UserProfile (not a plain Text). Logout text is `"Log out"` (two words) with style `"margin-left-s wcag-hide-text"`. The False branch shows a Login link for unauthenticated users.
 
 ### 8. Screens (in Common flow)
 
