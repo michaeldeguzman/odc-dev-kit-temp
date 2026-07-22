@@ -557,8 +557,8 @@ Every screen's layout block instance must have all parameter arguments explicitl
 
   - Container `"login-screen"` → Form `LoginForm` `"login-form"`:
 
-    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
-    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    **A — Logo + title** — Container `"login-logo"` (`CustomStyle: text-align: center`):
+    - Container (unnamed, `CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
     - AdvancedHtml tag `h1` (extended property `class="margin-y-base"`) → Expression `GetAppName()` (Style `"heading5 text-neutral-8"`, Example `"Application Title"`)
 
     **B — `BuiltInProvider` If** (`Condition: ShowBuiltInProvider`, `DesignMode: ShowAll`), True branch:
@@ -600,8 +600,8 @@ Every screen's layout block instance must have all parameter arguments explicitl
 
   - Container `"login-screen"` → Form `RecoverPasswordForm` `"login-form"`:
 
-    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
-    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    **A — Logo + title** — Container `"login-logo"` (`CustomStyle: text-align: center`):
+    - Container (unnamed, `CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
     - AdvancedHtml tag `h5` (extended property `class="margin-top-base text-neutral-8"`) → Text `"Forgot your password?"`
     - Container `"margin-top-s"` → Container → Text `"Don't worry, we'll send you an email with instructions."`
 
@@ -636,8 +636,8 @@ Every screen's layout block instance must have all parameter arguments explicitl
 
   - Container `"login-screen"` → Form `PasswordResetForm` `"login-form"` (Width `""`):
 
-    **A — Logo + title** (`"login-logo"`, `CustomStyle: text-align: center`):
-    - Container (`CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
+    **A — Logo + title** — Container `"login-logo"` (`CustomStyle: text-align: center`):
+    - Container (unnamed, `CustomStyle: text-align: center`) → Image `Logo` (`CustomStyle: height: 100px`, `alt=""`)
     - AdvancedHtml tag `h5` (extended property `class="margin-top-base text-neutral-8"`) → Text `"Reset password"`
     - Container `"margin-top-s"` → Container → Text `"If the entered email is correct, we'll send a verification code to that email. Please enter the code below to verify your identity."`
 
