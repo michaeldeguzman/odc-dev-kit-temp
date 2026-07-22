@@ -72,6 +72,25 @@ Parameters:
 
 Client Actions: `OnInitialize`, `OnReady`, `OnDestroy`.
 
+Widget tree — minimal shell; no header, skip-nav, or footer. One Placeholder (WebBlockZone), **never** a plain Container:
+
+```
+(unnamed root Container)
+  Style: "layout blank"
+         + If(not EnableAccessibilityFeatures, "", " has-accessible-features")
+         + If(ExtendedClass = "", "", " " + ExtendedClass)
+  │
+  └── (unnamed Container)
+        Style: "content"
+        Extended props: role="main"
+        └── Content  [Placeholder]
+              Style: "main-content"
+              EffectiveWidth: UserDefined
+              (no default content)
+```
+
+> **Key notes:** CSS class is `"blank"` — not `"layout-blank"` (the root already has `"layout"` as first class). `not EnableAccessibilityFeatures` condition: adds `" has-accessible-features"` when the parameter is `True`. No `HasFixedHeader` parameter. The `Content` placeholder style is `"main-content"` (not `"content-middle"`).
+
 #### LayoutTopMenu
 
 Description: `"Adds a layout with the menu on the header, most used in applications with few menu items."`
