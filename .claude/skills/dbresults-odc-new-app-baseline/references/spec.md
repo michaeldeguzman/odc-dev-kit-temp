@@ -44,10 +44,12 @@ auditing the full spec. Anchors below match the batch numbers in
 
 ### 5. Local Images
 
+Binary image assets cannot be reliably pushed from Claude Code into ODC — both images are a **manual post-scaffold step** (see [`references/gotchas.md`](references/gotchas.md#local-images--logo-and-user)).
+
 | Name | Purpose |
 |---|---|
-| `Logo` | App logo on login screen and header | Use [`assets/Logo.png`](assets/Logo.png) verbatim — extracted from NewApp reference 2026-07-23. Do not substitute a placeholder. |
-| `User` | Placeholder avatar for users without a photo | Use [`assets/User.png`](assets/User.png) verbatim — extracted from NewApp reference 2026-07-23. Do not substitute a placeholder. |
+| `Logo` | App logo on login screen and header. **Not managed by this skill** — upload the correct image manually in ODC Studio after scaffolding. Do not use a placeholder GIF/PNG. |
+| `User` | Placeholder avatar for users without a photo. **Not managed by this skill** — upload manually in ODC Studio after scaffolding. Do not use a placeholder GIF/PNG. |
 
 ### 6. Layout Blocks (in Layouts flow)
 
@@ -878,7 +880,7 @@ Both templates share the same four input parameters — **all mandatory**: `Appl
 **CSS layers — two properties, complementary:**
 
 1. **Emails flow `Theme` property** → `EmailTheme`. Set at Batch 1. This applies the EmailTheme stylesheet (table/list widget CSS — see [`assets/EmailTheme.css`](assets/EmailTheme.css)) to all templates in the flow.
-2. **Per-template `StyleSheet` property** → leave empty (null). Do NOT set it on either template. The reference (NewApp) has no per-template stylesheet on either `ResetPassword` or `ChangeEmail`.
+2. **Per-template `StyleSheet` property** → required, complementary to the EmailTheme CSS. Set `ResetPassword`'s from [`assets/ResetPasswordStyle.css`](assets/ResetPasswordStyle.css) and `ChangeEmail`'s from [`assets/ChangeEmailStyle.css`](assets/ChangeEmailStyle.css), both verbatim. **Not settable via Model API** — must be done manually in ODC Studio after the skill run (see [`references/gotchas.md`](references/gotchas.md#email-template-per-template-stylesheet--manual-odc-studio-step)).
 3. **Template-level `Theme` property** → do not set. Templates inherit from the Emails flow.
 
 The utility CSS classes used in the widget trees (`heading2`, `btn-primary`, `email-logo`, `margin-bottom-m`, `text-neutral-7`, `font-size-xs`, `email-separator`, `email-max-width`, etc.) are injected by OutSystemsUI at email send time as part of its own email CSS bundle. No ODC model property needs to be set for these — they are available automatically when OutSystemsUI is a dependency.

@@ -69,6 +69,23 @@ If first publish fails, match the error code before guessing broadly:
 
 Mentor CAN create `ISendEmailNode` via natural language editing. Do NOT use `applyModelApiCode`. Templates must exist before the request. See Batch 6.
 
+### Email template per-template `StyleSheet` — manual ODC Studio step
+
+The Model API does not expose the `StyleSheet` property on `IMobileEmail` — it is only available on screens and web blocks. Mentor cannot set it programmatically. After the skill run, in ODC Studio:
+1. Open the **Emails** flow.
+2. Double-click **ResetPassword** → Properties → **StyleSheet** → paste [`assets/ResetPasswordStyle.css`](../assets/ResetPasswordStyle.css) verbatim.
+3. Double-click **ChangeEmail** → Properties → **StyleSheet** → paste [`assets/ChangeEmailStyle.css`](../assets/ChangeEmailStyle.css) verbatim.
+4. Verify the Emails flow **Theme** property is still `EmailTheme` (untouched by this step).
+
+### Local Images — `Logo` and `User`
+
+Binary image assets cannot be reliably pushed from Claude Code into ODC. After the skill run, in ODC Studio:
+1. Open the app → **Data** tab → **Local Storage** → **Images**.
+2. Replace `Logo` with the correct brand logo (PNG, ideally 1024×1024 or matching brand guidelines).
+3. Replace `User` with the correct user avatar placeholder.
+
+Do not leave the placeholder GIF/PNG — it renders as a black square or broken image on the login screen and in the user menu.
+
 ### `SetIconLibraryClass` — stub wired; real action needs ODC Studio
 
 Skill creates a local stub and wires it in all 4 layout block `OnInitialize` — 0 errors, 0 warnings. After the skill run, in ODC Studio:
